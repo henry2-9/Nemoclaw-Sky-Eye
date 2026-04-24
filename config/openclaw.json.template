@@ -1,0 +1,114 @@
+{
+  "meta": {
+    "managedBy": "fpg-appliance",
+    "renderedFrom": "config/openclaw.json.template"
+  },
+  "models": {
+    "mode": "replace",
+    "providers": {
+      "lmstudio": {
+        "baseUrl": "${LLM_API_URL}",
+        "apiKey": "${LLM_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "${VLM_MODEL}",
+            "name": "${VLM_MODEL}",
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 65536,
+            "maxTokens": 8192
+          }
+        ]
+      },
+      "google": {
+        "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+        "apiKey": "${GOOGLE_API_KEY}",
+        "api": "google-generative-ai",
+        "models": [
+          {
+            "id": "gemini-3-flash-preview",
+            "name": "Gemini 3 Flash Preview",
+            "input": ["text", "image"],
+            "contextWindow": 1048576,
+            "maxTokens": 65536
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "lmstudio/${VLM_MODEL}",
+        "fallbacks": ["lmstudio/${VLM_MODEL}"]
+      },
+      "imageModel": {
+        "primary": "google/gemini-3-flash-preview"
+      },
+      "compaction": { "mode": "safeguard" },
+      "thinkingDefault": "off"
+    },
+    "list": [
+      {
+        "id": "fpg",
+        "default": true,
+        "name": "FPG",
+        "workspace": "/state",
+        "identity": { "name": "AiUnion Agent" },
+        "model": {
+          "primary": "lmstudio/${VLM_MODEL}",
+          "fallbacks": ["lmstudio/${VLM_MODEL}"]
+        },
+        "sandbox": {
+          "mode": "off",
+          "workspaceAccess": "ro",
+          "workspaceRoot": "/state"
+        },
+        "tools": {
+          "alsoAllow": ["exec", "web_search", "web_fetch", "image"],
+          "deny": ["browser"],
+          "exec": {
+            "host": "gateway",
+            "security": "allowlist",
+            "ask": "off",
+            "pathPrepend": ["/opt/fpg-tools/bin"],
+            "safeBins": [
+              "fpg-event-query",
+              "fpg-violation-report",
+              "fpg-analyze-video",
+              "fpg-perception",
+              "fpg-video-ingest",
+              "rg", "grep", "find", "ls", "cat", "sed", "head", "tail",
+              "jq", "pwd", "wc"
+            ],
+            "timeoutSec": 600
+          },
+          "fs": { "workspaceOnly": true }
+        }
+      }
+    ]
+  },
+  "channels": {
+    "line": {
+      "enabled": true,
+      "channelAccessToken": "${LINE_CHANNEL_ACCESS_TOKEN}",
+      "channelSecret": "${LINE_CHANNEL_SECRET}",
+      "dmPolicy": "pairing",
+      "groupPolicy": "allowlist",
+      "historyLimit": 0
+    },
+    "telegram": {
+      "enabled": false,
+      "botToken": "${TELEGRAM_BOT_TOKEN}",
+      "allowFrom": [],
+      "groupPolicy": "allowlist",
+      "streaming": false
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback"
+  }
+}

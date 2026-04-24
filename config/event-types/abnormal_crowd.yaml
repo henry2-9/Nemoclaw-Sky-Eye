@@ -1,0 +1,37 @@
+# Built-in event type: abnormal crowd behaviour (fight / fleeing).
+id: 5
+key: abnormal_crowd
+name: 異常人流
+description: 偵測畫面中的衝突、肢體拉扯、群眾奔逃等異常人群動作。
+version: 1
+enabled: true
+
+classes:
+  - id: 0
+    key: fight
+    label: 衝突
+  - id: 1
+    key: fleeing
+    label: 奔逃
+
+vlm:
+  max_frames: 8
+  max_tokens: 800
+  prefill: '{"class":"'
+  prompt: |
+    請判斷這段影片畫面中的異常人群狀況。
+    只輸出 JSON,格式:{"class":"fight" 或 "fleeing","description":"單段中文事件描述"}。
+    description 必須是單一段落、不可換行、不可條列、不可使用第一人稱,也不可寫分析步驟。
+    請先簡述畫面中的場景與人物動作,再在句尾直接下結論,長度約 30 到 70 字,
+    例如「畫面中多人在同一區域快速聚集並伴隨明顯肢體拉扯,研判為多人衝突事件。」
+    若無法判斷則選最接近的。
+
+output_guards:
+  enforce_json: true
+  no_thinking_leak: true
+  description_length: [20, 150]
+
+notifications:
+  severity: high
+  throttle_seconds: 60
+  default_channels: [line]

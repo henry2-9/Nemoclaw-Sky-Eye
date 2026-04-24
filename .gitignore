@@ -1,0 +1,34 @@
+# ---- Secrets & runtime state (never commit) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.license
+
+# ---- Local data & models (too large / customer-specific) ----
+data/
+models/
+*.gguf
+*.safetensors
+
+# ---- Build & cache ----
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# ---- Editor / OS ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ---- Migration temp ----
+migration-dump/

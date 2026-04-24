@@ -1,0 +1,39 @@
+# Built-in event type: fire / smoke detection.
+# Do not change `id` or `classes[].id` — they are persisted in MongoDB and
+# must stay stable across upgrades.
+id: 4
+key: fire_smoke
+name: 火煙偵測
+description: 偵測畫面中的火焰與煙霧事件。
+version: 1
+enabled: true
+
+classes:
+  - id: 0
+    key: fire
+    label: 火焰
+  - id: 1
+    key: smoke
+    label: 煙霧
+
+vlm:
+  max_frames: 8
+  max_tokens: 800
+  prefill: '{"class":"'
+  prompt: |
+    請判斷這段影片畫面中是否有火焰或煙霧。
+    只輸出 JSON,格式:{"class":"fire" 或 "smoke","description":"單段中文事件描述"}。
+    description 必須是單一段落、不可換行、不可條列、不可使用第一人稱,也不可寫分析步驟。
+    請先簡述畫面中的場景與可見狀況,再在句尾直接下結論,長度約 30 到 70 字,
+    例如「畫面中可見局部區域出現明顯火光並伴隨持續燃燒跡象,研判為火焰事件。」
+    若無法判斷則選最接近的。
+
+output_guards:
+  enforce_json: true
+  no_thinking_leak: true
+  description_length: [20, 150]
+
+notifications:
+  severity: high
+  throttle_seconds: 60
+  default_channels: [line]

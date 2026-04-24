@@ -1,0 +1,41 @@
+# Built-in event type: abnormal weather / natural hazard.
+# Note: class `typhoon` is ID 1 (not 0) to preserve legacy mapping.
+id: 6
+key: abnormal_weather
+name: 異常氣候
+description: 偵測畫面中的颱風、濃霧、坍方等環境異常。
+version: 1
+enabled: true
+
+classes:
+  - id: 1
+    key: typhoon
+    label: 颱風
+  - id: 2
+    key: fog
+    label: 濃霧
+  - id: 3
+    key: landslide
+    label: 坍方
+
+vlm:
+  max_frames: 8
+  max_tokens: 800
+  prefill: '{"class":"'
+  prompt: |
+    請判斷這段影片畫面中的氣候或天災狀況。
+    只輸出 JSON,格式:{"class":"typhoon" 或 "fog" 或 "landslide","description":"單段中文事件描述"}。
+    description 必須是單一段落、不可換行、不可條列、不可使用第一人稱,也不可寫分析步驟。
+    請先簡述畫面中的環境狀況,再在句尾直接下結論,長度約 30 到 70 字,
+    例如「畫面整體能見度明顯下降且遠處景物模糊不清,研判為濃霧事件。」
+    若無法判斷則選最接近的。
+
+output_guards:
+  enforce_json: true
+  no_thinking_leak: true
+  description_length: [20, 150]
+
+notifications:
+  severity: medium
+  throttle_seconds: 300
+  default_channels: [line]

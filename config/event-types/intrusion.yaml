@@ -1,0 +1,33 @@
+# Built-in event type: unauthorized intrusion into restricted area.
+id: 7
+key: intrusion
+name: 人員闖入
+description: 偵測未授權人員進入或翻越禁區等侵入行為。
+version: 1
+enabled: true
+
+classes:
+  - id: 0
+    key: intrusion
+    label: 人員闖入
+
+vlm:
+  max_frames: 8
+  max_tokens: 800
+  prefill: '{"class":"'
+  prompt: |
+    請描述這段影片畫面中是否有未授權人員進入或闖入禁區的情況。
+    只輸出 JSON,格式:{"class":"intrusion","description":"單段中文事件描述"}。
+    description 必須是單一段落、不可換行、不可條列、不可使用第一人稱,也不可寫分析步驟。
+    請先簡述畫面中的場景與人物動作,再在句尾直接下結論,長度約 30 到 70 字,
+    例如「夜間畫面中可見一名人員沿圍欄邊緣移動並翻越進入區域,研判為人員闖入事件。」
+
+output_guards:
+  enforce_json: true
+  no_thinking_leak: true
+  description_length: [20, 150]
+
+notifications:
+  severity: high
+  throttle_seconds: 60
+  default_channels: [line]

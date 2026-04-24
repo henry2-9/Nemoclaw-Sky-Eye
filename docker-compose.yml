@@ -1,0 +1,147 @@
+# ============================================================================
+# FPG Appliance — docker-compose
+#
+# Single compose file serves both delivery SKUs:
+#   (a) Hardware Appliance — preloaded image, autostart on boot
+#   (b) Software License   — customer runs `docker compose up -d`
+#
+# Nothing in this file should contain secrets. All sensitive values come from
+# the `.env` file beside it (see `.env.example`).
+# ============================================================================
+
+name: fpg-appliance
+
+services:
+  # --------------------------------------------------------------------------
+  # MongoDB — event + session persistence
+  # --------------------------------------------------------------------------
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-fpg}
+      TZ: ${TZ:-Asia/Taipei}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - fpg_internal
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # llama-server — VLM inference (OpenAI-compatible /v1 endpoint)
+  # Swap to vLLM / Triton in a future phase without touching openclaw.
+  # --------------------------------------------------------------------------
+  llama-server:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    restart: unless-stopped
+    command:
+      - "-m"
+      - "/models/${VLM_MODEL_FILENAME}"
+      - "--alias"
+      - "${VLM_MODEL}"
+      - "-c"
+      - "${VLM_CONTEXT_LENGTH:-65536}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8080"
+      - "-ngl"
+      - "99"
+      - "--flash-attn"
+      - "--mlock"
+    volumes:
+      - ${VLM_MODELS_HOST_PATH:-./models}:/models:ro
+    networks:
+      - fpg_internal
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+
+  # --------------------------------------------------------------------------
+  # openclaw — agent gateway + fpg-tools (messaging channels, tool dispatch)
+  # --------------------------------------------------------------------------
+  openclaw:
+    build:
+      context: ./images/openclaw
+      dockerfile: Dockerfile
+    image: fpg-appliance/openclaw:${APP_VERSION:-0.1.0}
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      llama-server:
+        condition: service_healthy
+    environment:
+      # ---- Inference ----
+      VLM_API_URL: http://llama-server:8080/v1/chat/completions
+      VLM_API_KEY: dummy
+      VLM_MODEL: ${VLM_MODEL}
+      LLM_API_URL: http://llama-server:8080/v1
+      LLM_API_KEY: dummy
+
+      # ---- Persistence ----
+      MONGO_URI: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/${MONGO_DB_NAME:-fpg}?authSource=admin
+
+      # ---- Messaging channels ----
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
+      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ALLOW_FROM: ${TELEGRAM_ALLOW_FROM:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+
+      # ---- Public webhook URL (for info only; tunnel handles routing) ----
+      PUBLIC_WEBHOOK_URL: ${PUBLIC_WEBHOOK_URL:-}
+
+      # ---- Runtime ----
+      TZ: ${TZ:-Asia/Taipei}
+      NODE_ENV: production
+    volumes:
+      - ./config:/config:ro
+      - openclaw_state:/state
+      - ${FPG_DATA_HOST_PATH:-./data}:/data
+    networks:
+      - fpg_internal
+    # Control/webchat port — bound to localhost only. Public traffic comes
+    # through cloudflared, not this port.
+    ports:
+      - "127.0.0.1:18789:18789"
+
+  # --------------------------------------------------------------------------
+  # cloudflared — public webhook tunnel (replaces ngrok)
+  # Routing (which hostname → which container) is configured in the
+  # Cloudflare Zero Trust dashboard, tied to CLOUDFLARE_TUNNEL_TOKEN.
+  # --------------------------------------------------------------------------
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      openclaw:
+        condition: service_started
+    networks:
+      - fpg_internal
+
+# ============================================================================
+volumes:
+  mongo_data:
+  openclaw_state:
+
+networks:
+  fpg_internal:
+    driver: bridge

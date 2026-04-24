@@ -1,0 +1,75 @@
+# =============================================================================
+# Gitea Actions — CI for FPG Appliance
+#
+# What this runs today:
+#   • YAML + JSON schema validation on config/event-types/*.yaml
+#   • docker-compose config syntax check
+#
+# What it will do in a later sprint (scaffolding noted below):
+#   • multi-arch (amd64 + arm64) buildx for images/openclaw
+#   • push to the internal registry on tag
+#   • smoke test (boot the stack in-runner, hit /health)
+# =============================================================================
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install validators
+        run: |
+          python3 -m pip install --quiet pyyaml jsonschema
+
+      - name: Validate event-type YAML against schema
+        run: |
+          python3 - <<'PY'
+          import json, sys, glob, pathlib
+          import yaml, jsonschema
+
+          schema = json.loads(pathlib.Path("schemas/event-type.schema.json").read_text())
+          failed = 0
+          for path in sorted(glob.glob("config/event-types/*.yaml")):
+              doc = yaml.safe_load(pathlib.Path(path).read_text())
+              try:
+                  jsonschema.validate(doc, schema)
+                  print(f"ok   {path}")
+              except jsonschema.ValidationError as e:
+                  print(f"FAIL {path}: {e.message}")
+                  failed += 1
+          sys.exit(1 if failed else 0)
+          PY
+
+      - name: docker compose config syntax
+        run: |
+          docker compose -f docker-compose.yml --env-file .env.example config >/dev/null
+
+  # ---- Multi-arch image build (stubbed; enable once openclaw install step
+  #      in images/openclaw/Dockerfile is no longer a TODO) --------------------
+  # build-images:
+  #   needs: validate
+  #   if: startsWith(github.ref, 'refs/tags/')
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up QEMU
+  #       uses: docker/setup-qemu-action@v3
+  #     - name: Set up Buildx
+  #       uses: docker/setup-buildx-action@v3
+  #     - name: Build and push openclaw
+  #       uses: docker/build-push-action@v5
+  #       with:
+  #         context: ./images/openclaw
+  #         platforms: linux/amd64,linux/arm64
+  #         push: true
+  #         tags: |
+  #           registry.aiunion.internal/fpg-appliance/openclaw:${{ github.ref_name }}
+  #           registry.aiunion.internal/fpg-appliance/openclaw:latest
