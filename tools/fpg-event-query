@@ -1,0 +1,91 @@
+#!/bin/sh
+# Container entry for fpg-event-query. Argument dispatching mirrors the legacy
+# host-side wrapper; only the python resolution changed (now uses container PATH).
+set -eu
+
+SCRIPT_PY="$(dirname "$0")/fpg-event-query.py"
+
+COMMAND=""
+LIMIT=""
+QUERY_ID=""
+QUERY_KIND="all"
+QUERY_HOURS=""
+QUERY_DAYS=""
+QUERY_TODAY=""
+QUERY_START=""
+QUERY_END=""
+QUERY_CAMERA=""
+QUERY_TYPE=""
+QUERY_CLASS=""
+QUERY_STATUS="all"
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    summary|latest|event|media|cameras)
+      COMMAND="$1"
+      shift
+      ;;
+    --limit)        LIMIT="${2:-}";        shift 2 ;;
+    --id|--event-id) QUERY_ID="${2:-}";    shift 2 ;;
+    --kind)         QUERY_KIND="${2:-}";   shift 2 ;;
+    --hours)        QUERY_HOURS="${2:-}";  shift 2 ;;
+    --days)         QUERY_DAYS="${2:-}";   shift 2 ;;
+    --today)        QUERY_TODAY="1";       shift   ;;
+    --start)        QUERY_START="${2:-}";  shift 2 ;;
+    --end)          QUERY_END="${2:-}";    shift 2 ;;
+    --camera)       QUERY_CAMERA="${2:-}"; shift 2 ;;
+    --type)         QUERY_TYPE="${2:-}";   shift 2 ;;
+    --class)        QUERY_CLASS="${2:-}";  shift 2 ;;
+    --status)       QUERY_STATUS="${2:-}"; shift 2 ;;
+    *)
+      printf '{\n  "ok": false,\n  "error": "unsupported argument: %s"\n}\n' "$1"
+      exit 2
+      ;;
+  esac
+done
+
+if [ -z "$COMMAND" ]; then
+  printf '{\n  "ok": false,\n  "error": "missing command (summary|latest|event|media|cameras)"\n}\n'
+  exit 2
+fi
+
+set -- "$SCRIPT_PY" "$COMMAND"
+
+if [ -n "$LIMIT" ] && { [ "$COMMAND" = "summary" ] || [ "$COMMAND" = "latest" ]; }; then
+  set -- "$@" --limit "$LIMIT"
+fi
+if [ -n "$QUERY_ID" ] && { [ "$COMMAND" = "event" ] || [ "$COMMAND" = "media" ]; }; then
+  set -- "$@" --id "$QUERY_ID"
+fi
+if [ "$COMMAND" = "media" ] && [ -n "$QUERY_KIND" ]; then
+  set -- "$@" --kind "$QUERY_KIND"
+fi
+if [ -n "$QUERY_HOURS" ] && { [ "$COMMAND" = "summary" ] || [ "$COMMAND" = "latest" ] || [ "$COMMAND" = "media" ]; }; then
+  set -- "$@" --hours "$QUERY_HOURS"
+fi
+if [ -n "$QUERY_DAYS" ] && { [ "$COMMAND" = "summary" ] || [ "$COMMAND" = "latest" ] || [ "$COMMAND" = "media" ]; }; then
+  set -- "$@" --days "$QUERY_DAYS"
+fi
+if [ -n "$QUERY_TODAY" ] && { [ "$COMMAND" = "summary" ] || [ "$COMMAND" = "latest" ] || [ "$COMMAND" = "media" ]; }; then
+  set -- "$@" --today
+fi
+if [ -n "$QUERY_START" ] && { [ "$COMMAND" = "summary" ] || [ "$COMMAND" = "latest" ] || [ "$COMMAND" = "media" ]; }; then
+  set -- "$@" --start "$QUERY_START"
+fi
+if [ -n "$QUERY_END" ] && { [ "$COMMAND" = "summary" ] || [ "$COMMAND" = "latest" ] || [ "$COMMAND" = "media" ]; }; then
+  set -- "$@" --end "$QUERY_END"
+fi
+if [ -n "$QUERY_CAMERA" ] && { [ "$COMMAND" = "summary" ] || [ "$COMMAND" = "latest" ] || [ "$COMMAND" = "media" ]; }; then
+  set -- "$@" --camera "$QUERY_CAMERA"
+fi
+if [ -n "$QUERY_TYPE" ] && { [ "$COMMAND" = "summary" ] || [ "$COMMAND" = "latest" ] || [ "$COMMAND" = "media" ]; }; then
+  set -- "$@" --type "$QUERY_TYPE"
+fi
+if [ -n "$QUERY_CLASS" ] && { [ "$COMMAND" = "summary" ] || [ "$COMMAND" = "latest" ] || [ "$COMMAND" = "media" ]; }; then
+  set -- "$@" --class "$QUERY_CLASS"
+fi
+if [ -n "$QUERY_STATUS" ] && { [ "$COMMAND" = "summary" ] || [ "$COMMAND" = "latest" ] || [ "$COMMAND" = "media" ]; }; then
+  set -- "$@" --status "$QUERY_STATUS"
+fi
+
+exec python3 "$@"

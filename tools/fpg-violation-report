@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+SCRIPT_PY="$(dirname "$0")/fpg-violation-report.py"
+exec python3 "$SCRIPT_PY" "$@"
