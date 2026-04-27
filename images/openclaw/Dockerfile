@@ -2,52 +2,70 @@
 # =============================================================================
 # FPG Appliance — openclaw agent + fpg-tools container
 #
-# This image bundles:
-#   • openclaw gateway (agent framework, LINE/Telegram providers)
-#   • fpg-tools CLI scripts (fpg-video-ingest, fpg-event-query, etc.)
-#   • ffmpeg for frame extraction
-#   • Python 3 runtime for the tool scripts
+# Bundles:
+#   • openclaw gateway (LINE / Telegram providers, agent runtime)
+#   • fpg-tools CLI scripts (event-query, video-ingest, perception-client, ...)
+#   • Python 3 + ffmpeg + the libs the tools depend on
 #
-# The image is deliberately a "batteries-included" container so the agent
-# subprocesses can invoke the fpg-* CLIs directly without cross-container
-# plumbing. Once we outgrow this (horizontal scale, independent tool
-# versioning), the tools will move to a separate image.
+# Multi-arch: ships for linux/amd64 (BYO x86 GPU host) and linux/arm64 (GB10
+# appliance). All runtime dependencies are pure-python or have official ARM
+# wheels.
 # =============================================================================
 
 FROM node:22-bookworm
 
+ARG OPENCLAW_VERSION=2026.3.24
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_BREAK_SYSTEM_PACKAGES=1 \
-    NPM_CONFIG_UPDATE_NOTIFIER=false
+    PIP_NO_CACHE_DIR=1 \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT=false
 
-# ---- System packages -------------------------------------------------------
+# ---- 1. system deps -------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv \
         ffmpeg curl jq ca-certificates gettext-base tini \
     && rm -rf /var/lib/apt/lists/*
 
-# ---- openclaw gateway ------------------------------------------------------
-# TODO: pin to an exact version once release channel is decided. For now the
-# build will fail with a clear message so we don't silently ship an unpinned
-# dependency to customers.
-#
-# RUN npm install -g openclaw@<pinned-version>
-RUN echo "BUILD TODO: install openclaw — see images/openclaw/Dockerfile" \
-    && mkdir -p /opt/openclaw
+# ---- 2. openclaw gateway --------------------------------------------------
+# Pinned to OPENCLAW_VERSION for reproducibility. Bumping must happen via the
+# CI release pipeline (smoke test against this stack), not silently.
+RUN npm install -g openclaw@${OPENCLAW_VERSION} \
+    && openclaw --version
 
-# ---- fpg-tools (python scripts) --------------------------------------------
-# TODO: once fpg-tools is extracted into a proper Python package, replace this
-# with `pip install /opt/fpg-tools`. Until then the tools live outside the
-# image and will be mounted at runtime.
-RUN mkdir -p /opt/fpg-tools /config /state /data
-ENV PATH="/opt/fpg-tools/bin:${PATH}"
+# ---- 3. python deps for fpg-tools ----------------------------------------
+# Pinned to broad ranges; the inner stack is small and stable. opencv-python-
+# headless avoids pulling X11 just for cv2.imread / cv2.imwrite.
+RUN python3 -m pip install --upgrade pip \
+    && python3 -m pip install \
+        "pymongo>=4.7,<5" \
+        "pillow>=10,<12" \
+        "reportlab>=4.0,<5" \
+        "requests>=2.31,<3" \
+        "opencv-python-headless>=4.10,<5" \
+        "PyYAML>=6.0,<7" \
+        "jsonschema>=4.20,<5"
 
-# ---- Entrypoint ------------------------------------------------------------
+# ---- 4. fpg-tools ---------------------------------------------------------
+COPY tools/ /opt/fpg-tools/
+RUN chmod +x /opt/fpg-tools/fpg-* 2>/dev/null || true
+
+ENV PATH="/opt/fpg-tools:${PATH}"
+
+# ---- 5. layout ------------------------------------------------------------
+RUN mkdir -p /config /state /data /state/openclaw /state/sessions /state/memory
+
+# ---- 6. entrypoint --------------------------------------------------------
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 WORKDIR /state
 EXPOSE 18789
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
+    CMD curl -fsS http://localhost:18789/__openclaw__/health || exit 1
+
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 CMD ["openclaw", "gateway", "--foreground"]
