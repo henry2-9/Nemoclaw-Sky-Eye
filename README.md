@@ -22,24 +22,36 @@ Ships in two SKUs with a single software stack:
                     │   cloudflared      │  (tunnel, fixed public URL)
                     └──────────┬─────────┘
                                │
-            ┌──────────────────┼─────────────────────┐
-            │                  ▼                     │
-            │         ┌────────────────┐             │
-            │         │   openclaw     │  ← agent    │
-            │         │   + fpg-tools  │  ← CLI tools│
-            │         └─┬────────────┬─┘             │
-            │           │            │               │
-            │ ┌─────────▼─────┐ ┌────▼────────────┐  │
-            │ │ llama-server  │ │    MongoDB      │  │
-            │ │ (VLM inference)│ │ (events/state)  │  │
-            │ └───────────────┘ └─────────────────┘  │
-            │                                        │
-            │        fpg_internal docker network     │
-            └────────────────────────────────────────┘
-                       ▲                     ▲
-             /config/event-types/*.yaml   /data/{video,event_data}
-               (built-in + customer)        (bind mount)
+            ┌──────────────────┼──────────────────────────────┐
+            │                  ▼                              │
+            │         ┌────────────────┐                      │
+            │         │   openclaw     │  ← agent runtime     │
+            │         │   + fpg-tools  │  ← 5 CLI scripts     │
+            │         └─┬───────┬─────┬┘                      │
+            │           │       │     │                       │
+            │ ┌─────────▼─┐ ┌───▼───┐ │ ┌───────────────────┐ │
+            │ │ llama-    │ │ Mongo │ │ │ falcon-perception │ │
+            │ │  server   │ │  DB   │ │ │   (TII Apache-2)  │ │
+            │ │ (Qwen VLM)│ │       │ │ │ object detection  │ │
+            │ └───────────┘ └───────┘ │ └───────────────────┘ │
+            │                                                 │
+            │            fpg_internal docker network          │
+            └─────────────────────────────────────────────────┘
+                  ▲              ▲              ▲
+        /config/event-types/  /data/video/   HF cache
+        (yaml, customer-      (bind mount)   (volume,
+         extensible)                          first boot DL)
 ```
+
+**Service responsibilities**
+
+| Service             | Role                                                       |
+|---------------------|------------------------------------------------------------|
+| `mongodb`           | Event records, agent session state                         |
+| `llama-server`      | Vision-Language inference (Qwen3.6-35B-A3B + mmproj)       |
+| `falcon-perception` | Specialised object detection / OCR (TII Falcon Perception) |
+| `openclaw`          | Agent runtime, LINE/Telegram providers, dispatches `fpg-*` |
+| `cloudflared`       | Stable public webhook URL (replaces ngrok)                 |
 
 ## Quick Start
 
@@ -60,12 +72,20 @@ cp .env.example .env
 
 ### 2. Place the VLM model
 
-Put your GGUF model under `./models/`, then set `VLM_MODEL_FILENAME` in `.env`.
+llama-server needs both the main GGUF and the multimodal projector.
 
 ```bash
-ls models/
-# qwen3.6-35b-a3b-Q4_K_M.gguf
+ls "$VLM_MODELS_HOST_PATH"
+# Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf   (main model, ~23 GB)
+# mmproj-F16.gguf                   (vision projector — REQUIRED)
 ```
+
+Without `mmproj`, llama-server will run text-only and the event-detection
+pipeline (which sends frames as image inputs) will be blind.
+
+The `falcon-perception` service auto-downloads its model from Hugging Face
+into the `hf_cache` volume on first boot. Initial download takes 5–10 minutes;
+subsequent restarts are warm.
 
 ### 3. Start
 
