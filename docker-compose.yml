@@ -34,7 +34,7 @@ services:
       retries: 5
 
   # --------------------------------------------------------------------------
-  # llama-server — VLM inference (OpenAI-compatible /v1 endpoint)
+  # llama-server — Vision-Language inference (OpenAI-compatible /v1 endpoint)
   # Swap to vLLM / Triton in a future phase without touching openclaw.
   # --------------------------------------------------------------------------
   llama-server:
@@ -43,6 +43,8 @@ services:
     command:
       - "-m"
       - "/models/${VLM_MODEL_FILENAME}"
+      - "--mmproj"
+      - "/models/${VLM_MMPROJ_FILENAME}"
       - "--alias"
       - "${VLM_MODEL}"
       - "-c"
@@ -74,6 +76,43 @@ services:
       start_period: 180s
 
   # --------------------------------------------------------------------------
+  # falcon-perception — TII Falcon Perception VLM (object detection / OCR)
+  # Owns its own GPU slot; openclaw → fpg-perception → this service via HTTP.
+  # --------------------------------------------------------------------------
+  falcon-perception:
+    build:
+      context: ./images/falcon-perception
+      dockerfile: Dockerfile
+    image: fpg-appliance/falcon-perception:${APP_VERSION:-0.1.0}
+    restart: unless-stopped
+    environment:
+      FALCON_PERCEPTION_HOST: 0.0.0.0
+      FALCON_PERCEPTION_PORT: "18793"
+      HF_HOME: /hf-cache
+      HF_HUB_ENABLE_HF_TRANSFER: "1"
+      TZ: ${TZ:-Asia/Taipei}
+    volumes:
+      - hf_cache:/hf-cache
+      # Mounted so falcon-perception can read images referenced by absolute
+      # path inside /data (the same path the openclaw container sees).
+      - ${FPG_DATA_HOST_PATH:-./data}:/data:ro
+    networks:
+      - fpg_internal
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:18793/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 600s   # cold model download can take several minutes
+
+  # --------------------------------------------------------------------------
   # openclaw — agent gateway + fpg-tools (messaging channels, tool dispatch)
   # --------------------------------------------------------------------------
   openclaw:
@@ -87,6 +126,11 @@ services:
         condition: service_healthy
       llama-server:
         condition: service_healthy
+      # falcon-perception is NOT a hard dependency — it can take 10+ min to
+      # warm up on first boot, and openclaw should stay reachable for the
+      # tools that don't need perception.
+      falcon-perception:
+        condition: service_started
     environment:
       # ---- Inference ----
       VLM_API_URL: http://llama-server:8080/v1/chat/completions
@@ -94,6 +138,13 @@ services:
       VLM_MODEL: ${VLM_MODEL}
       LLM_API_URL: http://llama-server:8080/v1
       LLM_API_KEY: dummy
+
+      # ---- Falcon-Perception (object detection / OCR) ----
+      FALCON_PERCEPTION_SERVER: http://falcon-perception:18793
+
+      # ---- Pictshare (image hosting for LINE / report attachments) ----
+      PICTSHARE_URL: ${PICTSHARE_URL:-}
+      PICTSHARE_UPLOAD_CODE: ${PICTSHARE_UPLOAD_CODE:-}
 
       # ---- Persistence ----
       MONGO_URI: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/${MONGO_DB_NAME:-fpg}?authSource=admin
@@ -109,6 +160,7 @@ services:
       PUBLIC_WEBHOOK_URL: ${PUBLIC_WEBHOOK_URL:-}
 
       # ---- Runtime ----
+      FPG_WORKSPACE_ROOT: /state
       TZ: ${TZ:-Asia/Taipei}
       NODE_ENV: production
     volumes:
@@ -141,6 +193,7 @@ services:
 volumes:
   mongo_data:
   openclaw_state:
+  hf_cache:
 
 networks:
   fpg_internal:
