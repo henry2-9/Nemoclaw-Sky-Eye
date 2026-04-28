@@ -117,8 +117,10 @@ services:
   # --------------------------------------------------------------------------
   openclaw:
     build:
-      context: ./images/openclaw
-      dockerfile: Dockerfile
+      # context = repo root so the Dockerfile can `COPY tools/`
+      # (separate config files come in via the read-only /config bind mount).
+      context: .
+      dockerfile: images/openclaw/Dockerfile
     image: fpg-appliance/openclaw:${APP_VERSION:-0.1.0}
     restart: unless-stopped
     depends_on:

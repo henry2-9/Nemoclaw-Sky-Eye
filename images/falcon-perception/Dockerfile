@@ -48,8 +48,12 @@ RUN git clone --depth 1 --branch ${FP_GIT_REF} ${FP_GIT_REPO} /opt/falcon-percep
 # ---- python deps ----------------------------------------------------------
 # Install PyTorch 2.11 + cu130 from official index, then Falcon-Perception
 # itself. Done in two steps so torch isn't pulled from the wrong index.
-RUN python3 -m pip install --upgrade pip \
-    && python3 -m pip install \
+#
+# Note: we do NOT upgrade pip — Ubuntu's apt-installed python3-pip lacks the
+# RECORD file pip needs to uninstall itself, so `pip install --upgrade pip`
+# fails with "Cannot uninstall pip 24.0" on this base image. System pip 24
+# resolves the wheel URLs we need just fine.
+RUN python3 -m pip install \
         --index-url https://download.pytorch.org/whl/cu130 \
         torch==2.11.0 torchvision==0.26.0 \
     && python3 -m pip install -e /opt/falcon-perception

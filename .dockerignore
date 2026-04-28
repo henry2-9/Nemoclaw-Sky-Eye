@@ -1,0 +1,19 @@
+# With context=. the build sends the whole repo to the daemon. Keep large /
+# unrelated paths out of the upload to make builds fast and deterministic.
+.git
+.env
+.env.*
+!.env.example
+data/
+models/
+migration-dump/
+*.gguf
+*.safetensors
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+node_modules/
+.vscode/
+.idea/
+.DS_Store

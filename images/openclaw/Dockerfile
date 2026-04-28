@@ -39,8 +39,7 @@ RUN npm install -g openclaw@${OPENCLAW_VERSION} \
 # ---- 3. python deps for fpg-tools ----------------------------------------
 # Pinned to broad ranges; the inner stack is small and stable. opencv-python-
 # headless avoids pulling X11 just for cv2.imread / cv2.imwrite.
-RUN python3 -m pip install --upgrade pip \
-    && python3 -m pip install \
+RUN python3 -m pip install \
         "pymongo>=4.7,<5" \
         "pillow>=10,<12" \
         "reportlab>=4.0,<5" \
@@ -59,7 +58,8 @@ ENV PATH="/opt/fpg-tools:${PATH}"
 RUN mkdir -p /config /state /data /state/openclaw /state/sessions /state/memory
 
 # ---- 6. entrypoint --------------------------------------------------------
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+# Build context is the repo root, so the entrypoint lives under images/openclaw/.
+COPY images/openclaw/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 WORKDIR /state
