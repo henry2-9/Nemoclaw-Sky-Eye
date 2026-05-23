@@ -64,6 +64,24 @@ def test_investigate_builds_incident_when_confirmed():
     assert inc["media_refs"] == ["/tmp/f.jpg"]
     assert any(e["tool"] == "fpg-analyze-video" for e in inc["evidence_citations"])
 
+def test_investigate_applies_nemoclaw_triage():
+    cand = {"channel": 18, "event_type": "fire_smoke", "frame_path": "/tmp/f.jpg",
+            "cheap_evidence": {"counts": {"smoke": 1}}}
+    analyze = lambda ch, q: '{"confirmed": true, "confidence": 0.8, "severity": "medium", "summary": "濃煙"}'
+    triage = lambda et, desc, ev: {"severity": "critical", "recommended_action": "report",
+                                   "rationale": "火勢擴大", "governed_by": "nemoclaw-openshell"}
+    inc = orch.investigate(cand, analyze, triage_fn=triage)
+    assert inc["severity"] == "critical"          # 真 NemoClaw 治理後覆寫
+    assert inc["governed_by"] == "nemoclaw-openshell"
+    assert any(e["tool"] == "nemoclaw-hermes" for e in inc["evidence_citations"])
+
+def test_investigate_degrades_when_triage_returns_none():
+    cand = {"channel": 18, "event_type": "fire_smoke", "frame_path": None, "cheap_evidence": {}}
+    analyze = lambda ch, q: '{"confirmed": true, "confidence": 0.8, "severity": "high", "summary": "煙"}'
+    inc = orch.investigate(cand, analyze, triage_fn=lambda *a: None)
+    assert inc["severity"] == "high"              # 降級:保留 Nemotron 評分
+    assert inc["governed_by"] == "local"
+
 def test_run_cycle_silent_when_no_candidates():
     out = orch.run_cycle([], sweep_fn=lambda ch: [], analyze_fn=None, act_fn=None)
     assert out["candidates"] == 0 and out["incidents"] == 0

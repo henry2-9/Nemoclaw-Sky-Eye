@@ -56,13 +56,14 @@ def parse_grading(answer):
         "visible_text": str(d.get("visible_text", ""))[:200],
     }
 
-def investigate(candidate, analyze_fn):
-    """呼叫 Nemotron 確認+分級;未確認回 None,確認則組 incident。"""
+def investigate(candidate, analyze_fn, triage_fn=None):
+    """Nemotron 確認+分級(視覺);未確認回 None。
+    若提供 triage_fn(真 NemoClaw-Hermes 文字 triage),用其 severity/action 治理決策。"""
     answer = analyze_fn(candidate["channel"], build_question(candidate["event_type"]))
     g = parse_grading(answer)
     if not g["confirmed"]:
         return None
-    return {
+    incident = {
         "channel": str(candidate["channel"]),
         "event_type": candidate["event_type"],
         "confidence": g["confidence"],
@@ -75,16 +76,28 @@ def investigate(candidate, analyze_fn):
              "finding": f"falcon counts {candidate.get('cheap_evidence', {}).get('counts')}"},
         ],
         "cheap_text": g.get("visible_text", ""),   # Nemotron 回報的畫面文字 → 供政策閘掃注入
+        "governed_by": "local",
     }
+    if triage_fn:
+        verdict = triage_fn(candidate["event_type"], g["summary"],
+                            candidate.get("cheap_evidence", {}))
+        if verdict:
+            if verdict.get("severity"):
+                incident["severity"] = verdict["severity"]   # 真 NemoClaw 治理後的 severity
+            incident["recommended_action"] = verdict.get("recommended_action")
+            incident["governed_by"] = verdict.get("governed_by", "nemoclaw-openshell")
+            incident["evidence_citations"].append(
+                {"tool": "nemoclaw-hermes", "finding": verdict.get("rationale", "")})
+    return incident
 
-def run_cycle(channels, sweep_fn, analyze_fn, act_fn, max_n=4, exclude=None):
+def run_cycle(channels, sweep_fn, analyze_fn, act_fn, max_n=4, exclude=None, triage_fn=None):
     cands = sweep_fn(channels)
     if not cands:
         return {"candidates": 0, "investigated": 0, "incidents": 0, "results": []}
     selected = select_candidates(cands, max_n, exclude=exclude)
     results = []
     for c in selected:
-        inc = investigate(c, analyze_fn)
+        inc = investigate(c, analyze_fn, triage_fn=triage_fn)
         if inc:
             results.append(act_fn(inc))
     return {"candidates": len(cands), "investigated": len(selected),

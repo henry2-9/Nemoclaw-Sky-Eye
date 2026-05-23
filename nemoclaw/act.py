@@ -16,6 +16,7 @@ def run(incident, policy_path=None, recent=None, audit_path=None, now=None):
     decision["channel"] = incident.get("channel")
     decision["event_type"] = incident.get("event_type")
     decision["summary"] = incident.get("summary", "")
+    decision["governed_by"] = incident.get("governed_by", "local")   # local | nemoclaw-openshell
     decision["redacted"] = False
 
     if decision["decision"] == "ALLOW" and "notify" in decision["actions"]:

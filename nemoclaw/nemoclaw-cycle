@@ -3,7 +3,7 @@
 sweep → 挑選 → Nemotron 確認分級 → nemoclaw-act 政策閘(唯一對外出口)。"""
 import os, sys, json, time, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import register_channels, sweep, orchestrator, act
+import register_channels, sweep, orchestrator, act, nemoclaw_triage
 
 NEMOCLAW_DIR = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.normpath(os.path.join(NEMOCLAW_DIR, "..", "tools"))
@@ -50,8 +50,12 @@ def main():
     max_n = int(os.environ.get("NEMOCLAW_MAX_PER_CYCLE", "4"))
     window = act.load_policy().get("gating", {}).get("dedup_window_seconds", 300)
     exclude = _recent_handled(window)
+    # 文字 triage 走真 NemoClaw-Hermes(:8642,受 OpenShell policy 管治);可用才接,否則降級
+    triage_fn = None
+    if os.environ.get("NEMOCLAW_TRIAGE", "1") == "1":
+        triage_fn = lambda et, desc, ev: nemoclaw_triage.triage(et, desc, ev)
     result = orchestrator.run_cycle(chans, sweep.sweep_channels, analyze_fn, act_fn,
-                                    max_n=max_n, exclude=exclude)
+                                    max_n=max_n, exclude=exclude, triage_fn=triage_fn)
     summary = {
         "candidates": result["candidates"],
         "investigated": result["investigated"],
