@@ -12,9 +12,14 @@ HAZARD = {
     "abnormal_weather": "異常天候(淹水/強風/倒樹等)",
 }
 
-def select_candidates(cands, max_n=4):
-    """依事件優先序排序後取前 max_n,控制每輪 Nemotron 推理量。"""
-    return sorted(cands, key=lambda c: EVENT_PRIORITY.get(c.get("event_type"), 9))[:max_n]
+def select_candidates(cands, max_n=4, exclude=None):
+    """依事件優先序排序後取前 max_n,控制每輪 Nemotron 推理量。
+    exclude:冷卻窗內已通知的 (channel, event_type) 集合,優先讓出名額給新鮮事件,
+    使巡檢自然輪巡 16 路而非每輪只盯同幾台。"""
+    exclude = exclude or set()
+    fresh = [c for c in cands if (str(c.get("channel")), c.get("event_type")) not in exclude]
+    pool = fresh if fresh else cands   # 全在冷卻中時退回原集合(仍會被政策閘 DEDUP)
+    return sorted(pool, key=lambda c: EVENT_PRIORITY.get(c.get("event_type"), 9))[:max_n]
 
 def build_question(event_type):
     hazard = HAZARD.get(event_type, "異常狀況")
@@ -72,11 +77,11 @@ def investigate(candidate, analyze_fn):
         "cheap_text": g.get("visible_text", ""),   # Nemotron 回報的畫面文字 → 供政策閘掃注入
     }
 
-def run_cycle(channels, sweep_fn, analyze_fn, act_fn, max_n=4):
+def run_cycle(channels, sweep_fn, analyze_fn, act_fn, max_n=4, exclude=None):
     cands = sweep_fn(channels)
     if not cands:
         return {"candidates": 0, "investigated": 0, "incidents": 0, "results": []}
-    selected = select_candidates(cands, max_n)
+    selected = select_candidates(cands, max_n, exclude=exclude)
     results = []
     for c in selected:
         inc = investigate(c, analyze_fn)

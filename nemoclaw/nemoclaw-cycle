@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """一次自主巡檢週期(確定性編排)。由 hermes cron / supervisor 重複呼叫。
 sweep → 挑選 → Nemotron 確認分級 → nemoclaw-act 政策閘(唯一對外出口)。"""
-import os, sys, json, subprocess
+import os, sys, json, time, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import register_channels, sweep, orchestrator
+import register_channels, sweep, orchestrator, act
 
 NEMOCLAW_DIR = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.normpath(os.path.join(NEMOCLAW_DIR, "..", "tools"))
@@ -31,10 +31,27 @@ def act_fn(incident):
     except Exception as e:
         return {"decision": "ERROR", "error": str(e)}
 
+def _recent_handled(window):
+    """冷卻窗內已處理(ALLOW)的 (channel, event_type),供選取時排除以輪巡 16 路。"""
+    path = os.environ.get("NEMOCLAW_AUDIT_PATH")
+    handled, now = set(), time.time()
+    if path and os.path.exists(path):
+        for line in open(path, encoding="utf-8"):
+            try:
+                r = json.loads(line)
+                if r.get("decision") == "ALLOW" and (now - r.get("ts", 0)) <= window:
+                    handled.add((str(r.get("channel")), r.get("event_type")))
+            except Exception:
+                pass
+    return handled
+
 def main():
     chans = register_channels.load_channels(os.path.join(NEMOCLAW_DIR, "channels.yaml"))
     max_n = int(os.environ.get("NEMOCLAW_MAX_PER_CYCLE", "4"))
-    result = orchestrator.run_cycle(chans, sweep.sweep_channels, analyze_fn, act_fn, max_n=max_n)
+    window = act.load_policy().get("gating", {}).get("dedup_window_seconds", 300)
+    exclude = _recent_handled(window)
+    result = orchestrator.run_cycle(chans, sweep.sweep_channels, analyze_fn, act_fn,
+                                    max_n=max_n, exclude=exclude)
     summary = {
         "candidates": result["candidates"],
         "investigated": result["investigated"],

@@ -15,6 +15,23 @@ def test_select_caps_and_prioritizes():
     # fire_smoke 兩個優先,其次 intrusion
     assert [c["event_type"] for c in sel] == ["fire_smoke", "fire_smoke", "intrusion"]
 
+def test_select_excludes_recently_handled():
+    cands = [
+        {"channel": "18", "event_type": "fire_smoke"},
+        {"channel": "2", "event_type": "fire_smoke"},
+        {"channel": "5", "event_type": "intrusion"},
+    ]
+    sel = orch.select_candidates(cands, max_n=2,
+                                 exclude={("18", "fire_smoke"), ("2", "fire_smoke")})
+    types = [(c["channel"], c["event_type"]) for c in sel]
+    assert ("5", "intrusion") in types
+    assert ("18", "fire_smoke") not in types
+
+def test_select_falls_back_when_all_excluded():
+    cands = [{"channel": "18", "event_type": "fire_smoke"}]
+    sel = orch.select_candidates(cands, max_n=2, exclude={("18", "fire_smoke")})
+    assert len(sel) == 1   # 全冷卻時退回原集合(仍由政策閘 DEDUP)
+
 def test_parse_grading_extracts_json_amid_prose():
     ans = '好的,分析如下 {"confirmed": true, "confidence": 0.85, "severity": "high", "summary": "濃煙"} 以上'
     g = orch.parse_grading(ans)
