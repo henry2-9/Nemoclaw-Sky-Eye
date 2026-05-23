@@ -1,0 +1,19 @@
+# channel_id 與檔名獨立。event_type 對應既有 config/event-types/*.yaml
+video_dir: /home/aiunion/FPG/video
+channels:
+  - { id: 1,  name: "Cam01-倉儲A",  file: "火煙偵測1.mp4",  event_type: fire_smoke }
+  - { id: 2,  name: "Cam02-倉儲B",  file: "火煙偵測2.mp4",  event_type: fire_smoke }
+  - { id: 3,  name: "Cam03-產線",   file: "火煙偵測3.mp4",  event_type: fire_smoke }
+  - { id: 4,  name: "Cam04-機房",   file: "火煙偵測4.mp4",  event_type: fire_smoke }
+  - { id: 5,  name: "Cam05-周界N",  file: "人員闖入1.mp4",  event_type: intrusion }
+  - { id: 6,  name: "Cam06-周界E",  file: "人員闖入2.mp4",  event_type: intrusion }
+  - { id: 7,  name: "Cam07-後門",   file: "人員闖入3.mp4",  event_type: intrusion }
+  - { id: 8,  name: "Cam08-倉門",   file: "人員闖入4.mp4",  event_type: intrusion }
+  - { id: 9,  name: "Cam09-大廳",   file: "異常人流1.mp4",  event_type: abnormal_crowd }
+  - { id: 10, name: "Cam10-走道",   file: "異常人流2.mpeg", event_type: abnormal_crowd }
+  - { id: 11, name: "Cam11-出入口", file: "異常人流3.mp4",  event_type: abnormal_crowd }
+  - { id: 12, name: "Cam12-廣場",   file: "異常人流4.mp4",  event_type: abnormal_crowd }
+  - { id: 13, name: "Cam13-戶外1",  file: "異常氣候1.mp4",  event_type: abnormal_weather }
+  - { id: 14, name: "Cam14-戶外2",  file: "異常氣候2.mp4",  event_type: abnormal_weather }
+  - { id: 15, name: "Cam15-停車場", file: "異常氣候3.mp4",  event_type: abnormal_weather }
+  - { id: 16, name: "Cam16-屋頂",   file: "異常氣候4.mp4",  event_type: abnormal_weather }
