@@ -20,10 +20,11 @@ Run:
 ```bash
 cd /home/aiunion/Security-AI-Agent
 python3 -V
-python3 -m pip install --quiet pytest opencv-python requests 2>&1 | tail -1
-python3 -c "import cv2, requests; print('deps ok')"
+python3 -m pip install --quiet pytest opencv-python requests pymongo pyyaml 2>&1 | tail -1
+python3 -c "import cv2, requests, pymongo, yaml; print('deps ok')"
 ```
 Expected: 印出 Python 版本與 `deps ok`。
+備註(Task 1 實測發現):host 上直接跑 `fpg-*` 工具會 `from database import ...`,需 `pymongo`;且 **MongoDB 必須在跑**(`docker compose up -d mongodb`)channel 解析才會成功。docker 容器內本來就有 pymongo,host 執行才需補裝。
 
 - [ ] **P2: 確認分支**
 
