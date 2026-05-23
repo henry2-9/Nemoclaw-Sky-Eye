@@ -1,7 +1,8 @@
 # channel_id 與檔名獨立。event_type 對應既有 config/event-types/*.yaml
 video_dir: /home/aiunion/FPG/video
 channels:
-  - { id: 1,  name: "Cam01-倉儲A",  file: "火煙偵測1.mp4",  event_type: fire_smoke }
+  # id 1、17 為既有真實 RTSP 攝影機(office/office1),避開;倉儲A 改用空號 18
+  - { id: 18, name: "Cam18-倉儲A",  file: "火煙偵測1.mp4",  event_type: fire_smoke }
   - { id: 2,  name: "Cam02-倉儲B",  file: "火煙偵測2.mp4",  event_type: fire_smoke }
   - { id: 3,  name: "Cam03-產線",   file: "火煙偵測3.mp4",  event_type: fire_smoke }
   - { id: 4,  name: "Cam04-機房",   file: "火煙偵測4.mp4",  event_type: fire_smoke }
