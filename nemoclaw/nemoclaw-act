@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+"""agent 唯一對外出口。用法:nemoclaw-act --incident '<json>' 或 --incident-file <path>"""
+import os, sys, json, argparse
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import act
+
+def _recent_from_audit(audit_path):
+    out = []
+    if audit_path and os.path.exists(audit_path):
+        for line in open(audit_path, encoding="utf-8"):
+            try:
+                r = json.loads(line)
+                if r.get("decision") in ("ALLOW",) and "ts" in r:
+                    out.append(r)
+            except Exception:
+                pass
+    return out[-200:]
+
+def main():
+    ap = argparse.ArgumentParser()
+    g = ap.add_mutually_exclusive_group(required=True)
+    g.add_argument("--incident"); g.add_argument("--incident-file")
+    args = ap.parse_args()
+    incident = json.loads(args.incident) if args.incident else json.load(open(args.incident_file, encoding="utf-8"))
+    audit_path = os.environ.get("NEMOCLAW_AUDIT_PATH")
+    decision = act.run(incident, recent=_recent_from_audit(audit_path), audit_path=audit_path)
+    print(json.dumps(decision, ensure_ascii=False))
+
+if __name__ == "__main__":
+    main()
