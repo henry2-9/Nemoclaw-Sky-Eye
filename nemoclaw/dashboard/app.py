@@ -20,31 +20,35 @@ def _rows():
 
 def _stats(rows):
     s = {"ALLOW": 0, "BLOCK": 0, "DEDUP": 0, "ABSTAIN": 0}
-    notified = inj = 0
+    notified = inj = gov = 0
     for r in rows:
         s[r.get("decision", "")] = s.get(r.get("decision", ""), 0) + 1
         if r.get("decision") == "ALLOW" and "notify" in (r.get("actions") or []):
             notified += 1
         if r.get("injection_detected"):
             inj += 1
-    return s, notified, inj
+        if r.get("governed_by") == "nemoclaw-openshell":
+            gov += 1
+    return s, notified, inj, gov
 
 COLOR = {"ALLOW": "#0a7", "BLOCK": "#c33", "DEDUP": "#888", "ABSTAIN": "#e90"}
 
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         rows = _rows()
-        s, notified, inj = _stats(rows)
+        s, notified, inj, gov = _stats(rows)
         cards = (f"<b>{len(rows)}</b> 決策 &nbsp;|&nbsp; "
                  f"<span style='color:#0a7'>ALLOW {s['ALLOW']}</span> &nbsp; "
                  f"<span style='color:#c33'>BLOCK {s['BLOCK']}</span> &nbsp; "
                  f"<span style='color:#888'>DEDUP {s['DEDUP']}</span> &nbsp; "
                  f"<span style='color:#e90'>ABSTAIN {s['ABSTAIN']}</span> &nbsp;|&nbsp; "
-                 f"📣 已通知 {notified} &nbsp;|&nbsp; ⚠️ 注入阻擋 {inj}")
+                 f"📣 已通知 {notified} &nbsp;|&nbsp; ⚠️ 注入阻擋 {inj} &nbsp;|&nbsp; "
+                 f"<span style='color:#6cf'>🛡️ NemoClaw 治理 {gov}</span>")
         items = "".join(
             f"<tr><td>{r.get('ts_iso','')}</td><td>{r.get('channel','')}</td>"
             f"<td>{r.get('event_type','')}</td>"
             f"<td style='color:{COLOR.get(r.get('decision',''),'#000')};font-weight:700'>{r.get('decision','')}</td>"
+            f"<td>{'🛡️' if r.get('governed_by')=='nemoclaw-openshell' else ''}</td>"
             f"<td>{'⚠️' if r.get('injection_detected') else ''}</td>"
             f"<td>{', '.join(r.get('actions') or [])}</td>"
             f"<td>{'; '.join(r.get('reasons') or [])}</td></tr>"
@@ -58,7 +62,7 @@ th,td{{border:1px solid #243;padding:6px 8px;text-align:left}} th{{background:#1
 </style></head><body>
 <h2>🛡️ NemoClaw Sentinel — 自主巡檢治理稽核</h2>
 <div class=bar>{cards}</div>
-<table><tr><th>時間</th><th>Ch</th><th>類型</th><th>決策</th><th>注入</th><th>動作</th><th>理由</th></tr>
+<table><tr><th>時間</th><th>Ch</th><th>類型</th><th>決策</th><th>治理</th><th>注入</th><th>動作</th><th>理由</th></tr>
 {items}</table></body></html>"""
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
