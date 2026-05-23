@@ -30,6 +30,16 @@
 
 ---
 
+## 設計取捨:確定性編排 vs LLM 自主 tool-calling
+
+我們評估過讓 Nemotron 經 Hermes **自主 tool-calling**(LLM 自己決定呼叫 `fpg-*`、`nemoclaw-act`)。
+實測 Hermes Agent 要求模型 context ≥ 64K,而 GB10 在 Nemotron + Falcon + 服務堆疊下記憶體已近飽和
+(119GB 中僅餘 ~1GB),把 Nemotron 重啟到 64K 會 OOM 或需犧牲其他服務。
+
+因此採**確定性編排**:Nemotron 仍是核心推理(每個候選的多模態確認與分級都由它做),
+但「何時看哪一路、何時收手」由程式碼掌控。這在硬體預算內達成同樣的自主多步調查,
+且 demo 可預測、可單元測試 —— 是常見的 production agent 模式(LLM 推理 + 確定性編排)。
+
 ## 對應 Hackathon 評審標準
 
 | 評審要求 | 本作品如何滿足 | 驗證 |
