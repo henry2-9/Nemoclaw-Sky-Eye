@@ -16,15 +16,19 @@
 
 - [ ] **P1: 確認 Python 與測試工具**
 
-Run:
+Run(實測:系統 python 受 PEP 668 管制不可直接裝,改用專用 venv):
 ```bash
-cd /home/aiunion/Security-AI-Agent
-python3 -V
-python3 -m pip install --quiet pytest opencv-python requests pymongo pyyaml 2>&1 | tail -1
-python3 -c "import cv2, requests, pymongo, yaml; print('deps ok')"
+python3 -m venv --system-site-packages /home/aiunion/.venvs/nemoclaw
+NPY=/home/aiunion/.venvs/nemoclaw/bin/python
+$NPY -m pip install --quiet --upgrade pip
+$NPY -m pip install --quiet pytest opencv-python-headless requests pymongo pyyaml numpy
+$NPY -c "import cv2, requests, pymongo, yaml, numpy, pytest; print('deps ok', cv2.__version__)"
 ```
-Expected: 印出 Python 版本與 `deps ok`。
-備註(Task 1 實測發現):host 上直接跑 `fpg-*` 工具會 `from database import ...`,需 `pymongo`;且 **MongoDB 必須在跑**(`docker compose up -d mongodb`)channel 解析才會成功。docker 容器內本來就有 pymongo,host 執行才需補裝。
+Expected: 印出 `deps ok 4.x`。所有測試/工具用此 venv python(`/home/aiunion/.venvs/nemoclaw/bin/python`)。
+備註(Task 1 實測發現):
+- host 上直接跑 `fpg-*` 工具會 `from database import ...`,需 `pymongo`,且 **MongoDB 必須在跑** channel 解析才會成功(docker 容器內本來就有,host 執行才需補裝)。
+- `nemoclaw.env` 已把 `/home/aiunion/.venvs/nemoclaw/bin` 置於 `PATH` 最前,使 `fpg-*` 的 `#!/usr/bin/env python3` shebang 解析到此 venv。
+- 用 `opencv-python-headless`(server 端免 libGL)。
 
 - [ ] **P2: 確認分支**
 
@@ -835,15 +839,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import redact
 
 def test_blur_regions_changes_only_bbox():
+    # 對均勻色塊做模糊不會改變數值;用「跨邊緣」的 bbox 才測得到效果。
     img = np.full((100, 100, 3), 128, dtype=np.uint8)
-    img[10:40, 10:40] = 255  # 一塊白色 = 假人臉區
+    img[50:, :] = 255  # 下半白,在 row 50 形成水平邊緣
     p = os.path.join(tempfile.mkdtemp(), "in.png"); cv2.imwrite(p, img)
-    out = redact.blur_regions(p, [(10, 10, 40, 40)])
+    out = redact.blur_regions(p, [(0, 30, 100, 70)])  # bbox 跨越 row 50 邊緣
     res = cv2.imread(out)
-    # bbox 內應被模糊(不再是純 255)
-    assert res[25, 25].mean() < 255
-    # bbox 外應不變
-    assert res[80, 80].mean() == 128
+    assert 128 < res[48, 50].mean() < 255   # 邊緣上方原 128,被下方白拉高
+    assert res[10, 10].mean() == 128        # bbox 外不變
+    assert res[90, 90].mean() == 255
 ```
 
 - [ ] **Step 2: 執行確認失敗**
