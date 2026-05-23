@@ -30,15 +30,32 @@
 
 ---
 
-## 設計取捨:確定性編排 vs LLM 自主 tool-calling
+## 真 NVIDIA NemoClaw 整合(option 3 hybrid)
 
-我們評估過讓 Nemotron 經 Hermes **自主 tool-calling**(LLM 自己決定呼叫 `fpg-*`、`nemoclaw-act`)。
-實測 Hermes Agent 要求模型 context ≥ 64K,而 GB10 在 Nemotron + Falcon + 服務堆疊下記憶體已近飽和
-(119GB 中僅餘 ~1GB),把 Nemotron 重啟到 64K 會 OOM 或需犧牲其他服務。
+本作品**實際安裝並使用了真正的 NVIDIA NemoClaw**(`github.com/NVIDIA/NemoClaw`,
+官方 `curl|bash` 安裝),而非同名仿製:
 
-因此採**確定性編排**:Nemotron 仍是核心推理(每個候選的多模態確認與分級都由它做),
-但「何時看哪一路、何時收手」由程式碼掌控。這在硬體預算內達成同樣的自主多步調查,
-且 demo 可預測、可單元測試 —— 是常見的 production agent 模式(LLM 推理 + 確定性編排)。
+- **OpenShell 沙箱** `fpg-sentinel`(kernel 級隔離)+ **policy guardrails**(balanced tier, intent verification, egress allowlist)
+- **inference 路由到本機 Nemotron**(`:31010`,vllm-local provider)——零雲端推理
+- NemoClaw Hermes agent OpenAI-相容 API 於 `:8642`
+
+**職責分工(因硬體現實)**:
+- **視覺分析**留在**直連 Nemotron**(多模態 8 幀)——因 Hermes 要求 context ≥64K,而 8 張圖會超出本機 16K Nemotron,故重多模態不經 NemoClaw。
+- **文字 triage 決策**走**真 NemoClaw-Hermes**(`:8642`):Nemotron 產出事件描述後,由 OpenShell 沙箱內、受 policy 管治的 Hermes agent 判定 severity/處置;稽核記錄 `governed_by=nemoclaw-openshell`。
+- :8642 不可用時優雅降級回本地評分(系統不中斷)。
+
+> 為在本機 16K Nemotron 上運行,於沙箱 Hermes `config.yaml` 設 `model.context_length` 與
+> 各 `auxiliary.*.context_length` override 通過 64K guard(文字 triage 用量遠低於 16K,不 overflow)。
+
+### NemoClaw 安裝(一次性)
+```bash
+export NEMOCLAW_AGENT=hermes NEMOCLAW_PROVIDER=vllm NEMOCLAW_VLLM_PORT=31010 \
+       NEMOCLAW_MODEL=nemotron_3_nano_omni NEMOCLAW_SANDBOX_NAME=fpg-sentinel \
+       NEMOCLAW_POLICY_MODE=suggested NEMOCLAW_ACCEPT_THIRD_PARTY_SOFTWARE=1
+curl -fsSL https://www.nvidia.com/nemoclaw.sh | bash   # 需 sudo(Docker/CDI)
+# 之後:openshell forward start --background 8642 fpg-sentinel
+#       nemohermes fpg-sentinel status
+```
 
 ## 對應 Hackathon 評審標準
 
@@ -49,7 +66,7 @@
 | **long-running 架構** | 便宜 sweep 連續跑;Nemotron 僅在有候選時喚起;per-cycle timeout watchdog | ✅ |
 | **real task execution** | 真實工安事件偵測→調查→分級→通知;非概念 demo | ✅ |
 | **persistent deployment** | docker `restart: unless-stopped` + MongoDB + 稽核軌跡 | ✅ |
-| **bonus: NemoClaw policy guardrails** | `nemoclaw-act` 4 類護欄 + 宣告式 `policy.yaml` + 稽核 | ✅ ALLOW/BLOCK/DEDUP/注入 |
+| **bonus: NemoClaw policy guardrails** | **真 NVIDIA NemoClaw**(OpenShell 沙箱 + policy)治理文字 triage 決策 + 自製 `nemoclaw-act` 動作閘(4 類護欄、PII、防注入、稽核)| ✅ `governed_by=nemoclaw-openshell` + ALLOW/BLOCK/DEDUP/注入 |
 
 ---
 
