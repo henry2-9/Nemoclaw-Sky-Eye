@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""一次自主巡檢週期(確定性編排)。由 hermes cron / supervisor 重複呼叫。
+sweep → 挑選 → Nemotron 確認分級 → nemoclaw-act 政策閘(唯一對外出口)。"""
+import os, sys, json, subprocess
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import register_channels, sweep, orchestrator
+
+NEMOCLAW_DIR = os.path.dirname(os.path.abspath(__file__))
+TOOLS = os.path.normpath(os.path.join(NEMOCLAW_DIR, "..", "tools"))
+ANALYZE = os.path.join(TOOLS, "fpg-analyze-video.py")
+ACT = os.path.join(NEMOCLAW_DIR, "nemoclaw-act")
+
+def analyze_fn(channel, question):
+    """Nemotron 確認+分級(8 幀跨全片,符合 vLLM image:8 上限)。回 answer 字串。"""
+    try:
+        out = subprocess.run(
+            [sys.executable, ANALYZE, "--channel", str(channel),
+             "--fps", "0.15", "--max-frames", "8", "--max-tokens", "256", "--question", question],
+            capture_output=True, text=True, env=dict(os.environ), timeout=180).stdout
+        return json.loads(out[out.index("{"):]).get("answer", "")
+    except Exception:
+        return ""
+
+def act_fn(incident):
+    """唯一對外出口:呼叫 nemoclaw-act 政策閘。"""
+    try:
+        out = subprocess.run(
+            [ACT, "--incident", json.dumps(incident, ensure_ascii=False)],
+            capture_output=True, text=True, env=dict(os.environ), timeout=120).stdout.strip()
+        return json.loads(out) if out.startswith("{") else {"decision": "ERROR", "raw": out[:200]}
+    except Exception as e:
+        return {"decision": "ERROR", "error": str(e)}
+
+def main():
+    chans = register_channels.load_channels(os.path.join(NEMOCLAW_DIR, "channels.yaml"))
+    max_n = int(os.environ.get("NEMOCLAW_MAX_PER_CYCLE", "4"))
+    result = orchestrator.run_cycle(chans, sweep.sweep_channels, analyze_fn, act_fn, max_n=max_n)
+    summary = {
+        "candidates": result["candidates"],
+        "investigated": result["investigated"],
+        "incidents": result["incidents"],
+        "decisions": [r.get("decision") for r in result["results"]],
+    }
+    print(json.dumps(summary, ensure_ascii=False))
+
+if __name__ == "__main__":
+    main()

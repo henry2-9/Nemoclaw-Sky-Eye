@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """政策閘核心:incident → policy.evaluate → (放行則 PII 馬賽克 + 通知) → 稽核。"""
-import os, yaml
+import os, datetime, yaml
 import policy, redact, audit, notify
 
 def load_policy(path=None):
@@ -10,7 +10,9 @@ def load_policy(path=None):
 
 def run(incident, policy_path=None, recent=None, audit_path=None, now=None):
     pol = load_policy(policy_path)
+    now = now or datetime.datetime.now()
     decision = policy.evaluate(incident, pol, recent=recent or [], now=now)
+    decision["ts"] = now.timestamp()   # epoch,供跨呼叫去重
     decision["channel"] = incident.get("channel")
     decision["event_type"] = incident.get("event_type")
     decision["summary"] = incident.get("summary", "")
