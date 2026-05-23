@@ -1,0 +1,18 @@
+gating:
+  confidence_threshold: 0.7
+  dedup_window_seconds: 300
+  action_allowlist: [log, notify, escalate, report]
+  severity_routing:
+    low:      { actions: [log] }
+    medium:   { actions: [log, notify], channels: [telegram] }
+    high:     { actions: [log, notify, escalate], channels: [telegram] }
+    critical: { actions: [log, notify, escalate, report], channels: [telegram] }
+privacy:
+  redact: [face]
+  raw_media_egress: false
+grounding:
+  require_citations: true
+  injection_patterns: ["忽略.*警報", "系統測試", "別通報", "這是演習", "ignore .*alert", "this is a drill", "disable.*alarm"]
+resource:
+  max_notifications_per_hour: 30
+  quiet_hours: { start: "23:00", end: "07:00", allow_severity: [critical] }
