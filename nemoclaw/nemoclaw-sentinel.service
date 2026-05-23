@@ -1,0 +1,19 @@
+# NemoClaw Sentinel — 自主巡檢 systemd unit(persistent deployment)
+# 安裝:sudo cp nemoclaw/nemoclaw-sentinel.service /etc/systemd/system/
+#       sudo systemctl daemon-reload && sudo systemctl enable --now nemoclaw-sentinel
+# 檢視:journalctl -u nemoclaw-sentinel -f
+[Unit]
+Description=NemoClaw Sentinel autonomous multimodal safety patrol (GB10)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aiunion
+WorkingDirectory=/home/aiunion/Security-AI-Agent
+ExecStart=/usr/bin/env bash /home/aiunion/Security-AI-Agent/nemoclaw/nemoclaw-supervisor.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

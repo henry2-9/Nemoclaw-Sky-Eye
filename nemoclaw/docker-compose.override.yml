@@ -1,0 +1,7 @@
+# 讓核心依賴服務開機自啟,確保 persistent deployment。
+# 用法:docker compose -f docker-compose.yml -f nemoclaw/docker-compose.override.yml up -d mongodb
+# 註:本機 Falcon Perception 與 vLLM Nemotron 為 host 程序/獨立容器,
+#     分別由各自的啟動腳本 / systemd 維持(見 vllm-nemotron-omni-nvfp4.sh)。
+services:
+  mongodb:
+    restart: unless-stopped
