@@ -31,7 +31,7 @@ Falcon sweep(便宜,連續) → 〔有候選〕→ Nemotron-Omni 多模態確認
 全部跑在**一台 GB10**(Nemotron + Falcon + NemoClaw 共存,零雲端推理)。
 
 ## 技術棧 / 復用
-Nemotron-3-Nano-Omni-NVFP4(vLLM)· NVIDIA NemoClaw / OpenShell · Falcon Perception · Telegram · MongoDB · GB10(aarch64, sm_121)。複用既有 FPG appliance 約 80%(5 個 `fpg-*` 工具、event-types、通知、持久化)。
+Nemotron-3-Nano-Omni-NVFP4(vLLM)· NVIDIA NemoClaw / OpenShell · Falcon Perception · Telegram · MongoDB · GB10(aarch64, sm_121)。複用既有 Sentinel appliance 約 80%(5 個 `sentinel-*` 工具、event-types、通知、持久化)。
 
 ## 快速啟動
 ```bash
@@ -41,4 +41,4 @@ python3 nemoclaw/dashboard/app.py                  # 治理稽核 dashboard :809
 ```
 demo:`bash nemoclaw/demo_attack_scene.sh`(防注入決勝)· `nemoclaw/nemoclaw-flight-recorder --latest 3`
 
-— Henry Lu · AiUnion · 42 單元測試通過 · 27 commits(branch `nemoclaw-sentinel`)
+— Henry Lu · NemoClaw · 42 單元測試通過 · 27 commits(branch `nemoclaw-sentinel`)

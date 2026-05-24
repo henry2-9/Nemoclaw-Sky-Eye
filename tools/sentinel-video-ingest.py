@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-fpg-video-ingest — 分析指定類別影片並寫入事件至 MongoDB
+sentinel-video-ingest — 分析指定類別影片並寫入事件至 MongoDB
 用法:
-  fpg-video-ingest --type <中文類別>
+  sentinel-video-ingest --type <中文類別>
   支援: 火煙偵測 / 異常人流 / 異常氣候 / 人員闖入
 輸出: JSON
 """
@@ -16,8 +16,8 @@ from contextlib import redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 
-WORKSPACE_ROOT = Path(os.environ.get("FPG_WORKSPACE_ROOT", "/state")).resolve()
-VIDEO_DIR = Path(os.environ.get("FPG_VIDEO_DIR", "/data/video"))
+WORKSPACE_ROOT = Path(os.environ.get("SENTINEL_WORKSPACE", "/state")).resolve()
+VIDEO_DIR = Path(os.environ.get("Sentinel_VIDEO_DIR", "/data/video"))
 EVENT_TYPES_DIR = Path(os.environ.get("EVENT_TYPES_DIR", "/config/event-types"))
 os.chdir(WORKSPACE_ROOT)
 if str(WORKSPACE_ROOT) not in sys.path:
@@ -63,7 +63,7 @@ def _load_event_types() -> tuple[dict, dict]:
         import yaml  # type: ignore
     except ImportError:
         sys.stderr.write(
-            "[fpg-video-ingest] PyYAML missing; cannot load event-types from "
+            "[sentinel-video-ingest] PyYAML missing; cannot load event-types from "
             f"{EVENT_TYPES_DIR}. Install PyYAML or fix the openclaw image.\n"
         )
         return {}, {}
@@ -72,7 +72,7 @@ def _load_event_types() -> tuple[dict, dict]:
     class_id_map: dict = {}
     if not EVENT_TYPES_DIR.is_dir():
         sys.stderr.write(
-            f"[fpg-video-ingest] event-types directory not found: {EVENT_TYPES_DIR}\n"
+            f"[sentinel-video-ingest] event-types directory not found: {EVENT_TYPES_DIR}\n"
         )
         return type_map, class_id_map
 
@@ -80,7 +80,7 @@ def _load_event_types() -> tuple[dict, dict]:
         try:
             doc = yaml.safe_load(path.read_text(encoding="utf-8"))
         except Exception as e:
-            sys.stderr.write(f"[fpg-video-ingest] failed to parse {path}: {e}\n")
+            sys.stderr.write(f"[sentinel-video-ingest] failed to parse {path}: {e}\n")
             continue
         if not isinstance(doc, dict) or doc.get("enabled") is False:
             continue
@@ -91,7 +91,7 @@ def _load_event_types() -> tuple[dict, dict]:
             classes   = doc["classes"]
             prompt    = doc["vlm"]["prompt"]
         except (KeyError, TypeError, ValueError) as e:
-            sys.stderr.write(f"[fpg-video-ingest] {path} missing required field: {e}\n")
+            sys.stderr.write(f"[sentinel-video-ingest] {path} missing required field: {e}\n")
             continue
 
         class_keys = [str(c["key"]) for c in classes]
@@ -141,7 +141,7 @@ def extract_frames_1fps(video_path: str, fps: float = 1.0) -> tuple:
     mid = total // 2
     for i in range(total):
         t = i / fps
-        out = f"/tmp/fpg_vi_{stem}_{i:04d}.jpg"
+        out = f"/tmp/sentinel_vi_{stem}_{i:04d}.jpg"
         subprocess.run(
             ["ffmpeg", "-y", "-ss", str(t), "-i", video_path,
              "-frames:v", "1", "-vf", "scale=512:-1", "-q:v", "3", out],
@@ -152,7 +152,7 @@ def extract_frames_1fps(video_path: str, fps: float = 1.0) -> tuple:
                 frames.append(base64.b64encode(f.read()).decode())
             if i == mid:
                 # 代表幀用較高解析度重新擷取
-                thumb = f"/tmp/fpg_vi_{stem}_thumb.jpg"
+                thumb = f"/tmp/sentinel_vi_{stem}_thumb.jpg"
                 subprocess.run(
                     ["ffmpeg", "-y", "-ss", str(t), "-i", video_path,
                      "-frames:v", "1", "-vf", "scale=1280:-1", "-q:v", "2", thumb],
@@ -162,7 +162,7 @@ def extract_frames_1fps(video_path: str, fps: float = 1.0) -> tuple:
             os.remove(out)
     if not thumb_path:
         # fallback：用第 1 秒
-        thumb = f"/tmp/fpg_vi_{stem}_thumb.jpg"
+        thumb = f"/tmp/sentinel_vi_{stem}_thumb.jpg"
         subprocess.run(
             ["ffmpeg", "-y", "-ss", "1", "-i", video_path,
              "-frames:v", "1", "-vf", "scale=1280:-1", "-q:v", "2", thumb],
@@ -382,7 +382,7 @@ def upload_video(path: str) -> str | None:
     """Upload a video file to Pictshare and return its public URL."""
     import urllib.request
     try:
-        boundary = "----FormBoundaryFPGVideo"
+        boundary = "----FormBoundarySentinelVideo"
         with open(path, "rb") as f:
             file_data = f.read()
         fname = Path(path).name
@@ -453,7 +453,7 @@ def insert_event(type_id: int, class_id: int, description: str,
     if key_time is not None:
         try:
             start = max(0.0, key_time - 2.0)
-            clip_tmp = f"/tmp/fpg_clip_{oid}.mp4"
+            clip_tmp = f"/tmp/sentinel_clip_{oid}.mp4"
             r = subprocess.run(
                 ["ffmpeg", "-y", "-ss", str(start), "-i", video_path,
                  "-t", "5", "-c:v", "libx264", "-crf", "23",
@@ -488,7 +488,7 @@ def send_text_notification(channel: str, target: str, text: str) -> None:
 def _line_access_token() -> str:
     """Read LINE channelAccessToken from openclaw config."""
     try:
-        cfg_path = Path(os.environ.get("OPENCLAW_ROOT", "/home/aiunion/.openclaw")) / "openclaw.json"
+        cfg_path = Path(os.environ.get("OPENCLAW_ROOT", os.path.expanduser("~/.openclaw"))) / "openclaw.json"
         with open(cfg_path) as f:
             return json.load(f)["channels"]["line"]["channelAccessToken"]
     except Exception:
@@ -557,7 +557,7 @@ def send_video_notification(channel: str, target: str, video_path: str,
                 # Use provided preview or upload a frame as preview image
                 prev = preview_url
                 if not prev:
-                    frame_tmp = f"/tmp/fpg_prev_{Path(video_path).stem}.jpg"
+                    frame_tmp = f"/tmp/sentinel_prev_{Path(video_path).stem}.jpg"
                     subprocess.run(
                         ["ffmpeg", "-y", "-ss", "1", "-i", video_path,
                          "-frames:v", "1", "-vf", "scale=480:-1", "-q:v", "3", frame_tmp],
@@ -596,15 +596,15 @@ def send_video_notification(channel: str, target: str, video_path: str,
 
 
 def resolve_active_session() -> tuple:
-    """Find the most recently active FPG session from sessions.json.
+    """Find the most recently active Sentinel session from sessions.json.
 
     sessions.json has an 'updatedAt' Unix-ms timestamp that is updated on
     every agent turn, making it far more reliable than commands.log (which
     only records session creation/reset events).
     """
     sessions_path = (
-        Path(os.environ.get("OPENCLAW_ROOT", "/home/aiunion/.openclaw"))
-        / "agents" / "fpg" / "sessions" / "sessions.json"
+        Path(os.environ.get("OPENCLAW_ROOT", os.path.expanduser("~/.openclaw")))
+        / "agents" / "sentinel" / "sessions" / "sessions.json"
     )
     try:
         sessions = json.loads(sessions_path.read_text())
@@ -613,9 +613,9 @@ def resolve_active_session() -> tuple:
 
     best_channel, best_target, best_ts = "", "", 0
     for key, info in sessions.items():
-        # Only consider direct/group FPG sessions, skip meta keys like "agent:fpg:main"
+        # Only consider direct/group Sentinel sessions, skip meta keys like "agent:sentinel:main"
         parts = key.split(":")
-        if len(parts) < 5 or parts[0] != "agent" or parts[1] != "fpg":
+        if len(parts) < 5 or parts[0] != "agent" or parts[1] != "sentinel":
             continue
         channel = info.get("lastChannel") or parts[2]
         if not channel:

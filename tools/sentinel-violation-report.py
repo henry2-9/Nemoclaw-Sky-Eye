@@ -24,13 +24,13 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
-WORKSPACE_ROOT = Path(os.environ.get("FPG_WORKSPACE_ROOT", "/home/aiunion/FPG")).resolve()
+WORKSPACE_ROOT = Path(os.environ.get("SENTINEL_WORKSPACE", os.path.expanduser("~/sentinel-workspace"))).resolve()
 REPORT_DIR = WORKSPACE_ROOT / "event_data" / "reports"
-QUERY_MODULE_PATH = WORKSPACE_ROOT / ".openclaw" / "bin" / "fpg-event-query.py"
+QUERY_MODULE_PATH = WORKSPACE_ROOT / ".openclaw" / "bin" / "sentinel-event-query.py"
 
 
 def load_query_module():
-    spec = importlib.util.spec_from_file_location("fpg_event_query_module", QUERY_MODULE_PATH)
+    spec = importlib.util.spec_from_file_location("sentinel_event_query_module", QUERY_MODULE_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Unable to load query module: {QUERY_MODULE_PATH}")
     module = importlib.util.module_from_spec(spec)
@@ -195,11 +195,11 @@ def build_link_paragraph(text: str, style: ParagraphStyle) -> Paragraph:
 
 def build_note_text(event: dict[str, Any]) -> str:
     note_lines: list[str] = []
-    aiunion_summary = str(event.get("aiunion_summary") or "").strip()
+    ai_summary = str(event.get("ai_summary") or "").strip()
     description = str(event.get("description") or "").strip()
-    if aiunion_summary:
-        note_lines.append(f"AI 摘要：{aiunion_summary}")
-    if description and description != aiunion_summary:
+    if ai_summary:
+        note_lines.append(f"AI 摘要：{ai_summary}")
+    if description and description != ai_summary:
         note_lines.append(f"備註：{description}")
     if not note_lines:
         note_lines.append("無")

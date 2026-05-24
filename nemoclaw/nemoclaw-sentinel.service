@@ -9,9 +9,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=aiunion
-WorkingDirectory=/home/aiunion/Security-AI-Agent
-ExecStart=/usr/bin/env bash /home/aiunion/Security-AI-Agent/nemoclaw/nemoclaw-supervisor.sh
+# 將 User 改成你的帳號;%h 會解析為該帳號的家目錄(repo 預設置於 ~/Security-AI-Agent)
+User=sentinel
+WorkingDirectory=%h/Security-AI-Agent
+ExecStart=/usr/bin/env bash %h/Security-AI-Agent/nemoclaw/nemoclaw-supervisor.sh
 Restart=always
 RestartSec=10
 

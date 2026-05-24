@@ -1,5 +1,5 @@
 # channel_id 與檔名獨立。event_type 對應既有 config/event-types/*.yaml
-video_dir: /home/aiunion/FPG/video
+video_dir: ${SENTINEL_WORKSPACE}/video
 channels:
   # id 1、17 為既有真實 RTSP 攝影機(office/office1),避開;倉儲A 改用空號 18
   - { id: 18, name: "Cam18-倉儲A",  file: "火煙偵測1.mp4",  event_type: fire_smoke }

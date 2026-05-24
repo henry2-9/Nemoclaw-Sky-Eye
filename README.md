@@ -62,7 +62,7 @@ python3 nemoclaw/dashboard/app.py              # 治理稽核 dashboard → http
 | [`nemoclaw/DEMO_SCRIPT.md`](nemoclaw/DEMO_SCRIPT.md) | 一頁錄製腳本(7 鏡頭) |
 | [`nemoclaw/REHEARSAL.md`](nemoclaw/REHEARSAL.md) | Demo 演練紀錄(實機輸出) |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/) · [`plans/`](docs/superpowers/plans/) | 設計 spec 與實作計畫 |
-| [`docs/FPG-APPLIANCE.md`](docs/FPG-APPLIANCE.md) | 底層平台(FPG Appliance)說明 |
+| [`docs/Sentinel-APPLIANCE.md`](docs/Sentinel-APPLIANCE.md) | 底層平台(Sentinel Appliance)說明 |
 
 ## 專案結構(NemoClaw 部分)
 
@@ -83,4 +83,4 @@ nemoclaw/
 
 ---
 
-*底層復用既有 FPG Appliance 約 80%(5 個 `fpg-*` 工具、event-types、通知管線、持久化)。平台說明見 [`docs/FPG-APPLIANCE.md`](docs/FPG-APPLIANCE.md)。*
+*底層復用既有 Sentinel Appliance 約 80%(5 個 `sentinel-*` 工具、event-types、通知管線、持久化)。平台說明見 [`docs/Sentinel-APPLIANCE.md`](docs/Sentinel-APPLIANCE.md)。*

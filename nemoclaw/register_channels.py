@@ -6,7 +6,7 @@ import yaml
 def load_channels(yaml_path):
     with open(yaml_path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
-    vdir = data["video_dir"]
+    vdir = os.path.expandvars(os.path.expanduser(data["video_dir"]))
     out = []
     for c in data["channels"]:
         c = dict(c)
@@ -22,7 +22,7 @@ def register(channels, db):
                             channel_id=c["id"], location="NemoClaw Sentinel")
 
 def main():
-    sys.path.insert(0, os.environ.get("FPG_WORKSPACE_ROOT", "/home/aiunion/FPG"))
+    sys.path.insert(0, os.environ.get("SENTINEL_WORKSPACE", os.path.expanduser("~/sentinel-workspace")))
     from database import StreamSourceDatabase
     chans = load_channels(os.path.join(os.path.dirname(__file__), "channels.yaml"))
     register(chans, StreamSourceDatabase())

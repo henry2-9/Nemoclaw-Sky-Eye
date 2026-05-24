@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Migrate a non-containerized local FPG setup into this docker-compose stack.
+# Migrate a non-containerized local Sentinel setup into this docker-compose stack.
 #
 # What this script does (and does NOT):
 #   ✅ Dump the local MongoDB and restore it into the `mongodb` container volume
-#   ✅ Copy ~/FPG/BOOTSTRAP.md → config/bootstrap.md (review before commit)
+#   ✅ Copy ~/Sentinel/BOOTSTRAP.md → config/bootstrap.md (review before commit)
 #   ✅ Report every manual step you still need to do
 #   ❌ Touch any secrets (LINE token, API keys). You move those to `.env`.
 #   ❌ Stop the old services. Do that explicitly once you have verified the
@@ -21,7 +21,7 @@ set -euo pipefail
 # ---- Paths -----------------------------------------------------------------
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 DUMP_DIR="${REPO_ROOT}/migration-dump"
-LEGACY_BOOTSTRAP="${HOME}/FPG/BOOTSTRAP.md"
+LEGACY_BOOTSTRAP="${HOME}/Sentinel/BOOTSTRAP.md"
 TARGET_BOOTSTRAP="${REPO_ROOT}/config/bootstrap.md"
 
 # ---- .env ------------------------------------------------------------------
@@ -66,9 +66,9 @@ cat <<'EOF'
 ==============================================================================
   Migration finished. Manual follow-ups:
 
-    1. Copy videos/event artifacts into ${FPG_DATA_HOST_PATH:-./data}/
-         rsync -a ~/FPG/video/         ./data/video/
-         rsync -a ~/FPG/event_data/    ./data/event_data/
+    1. Copy videos/event artifacts into ${Sentinel_DATA_HOST_PATH:-./data}/
+         rsync -a ~/Sentinel/video/         ./data/video/
+         rsync -a ~/Sentinel/event_data/    ./data/event_data/
 
     2. Fill in .env with LINE / Telegram / Cloudflare tokens.
 

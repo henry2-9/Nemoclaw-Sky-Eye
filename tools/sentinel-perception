@@ -1,9 +1,9 @@
 #!/bin/sh
-# Container entry for fpg-perception. The legacy host wrapper had a retry-on-
+# Container entry for sentinel-perception. The legacy host wrapper had a retry-on-
 # OOM loop because LM Studio + PyTorch contended for the same GPU; in the
 # container split, falcon-perception owns its own service and this is a plain
 # HTTP client, so no retry-on-signal needed.
 set -eu
 
-SCRIPT_PY="$(dirname "$0")/fpg-perception.py"
+SCRIPT_PY="$(dirname "$0")/sentinel-perception.py"
 exec python3 "$SCRIPT_PY" "$@"

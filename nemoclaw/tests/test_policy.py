@@ -19,7 +19,7 @@ POL = {
 
 def inc(**kw):
     base = {"channel":"7","event_type":"fire_smoke","confidence":0.9,"severity":"high",
-            "summary":"濃煙","evidence_citations":[{"tool":"fpg-analyze-video","finding":"煙"}]}
+            "summary":"濃煙","evidence_citations":[{"tool":"sentinel-analyze-video","finding":"煙"}]}
     base.update(kw); return base
 
 # ③ 接地

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Nemotron-Omni 多模態 smoke test:抽一張真實幀 + 提問,確認回應合理
 set -euo pipefail
-VID="${1:-/home/aiunion/FPG/video/火煙偵測1.mp4}"
+VID="${1:-${SENTINEL_WORKSPACE:-$HOME/sentinel-workspace}/video/火煙偵測1.mp4}"
 SEC="${2:-2}"
 FRAME=/tmp/nemo_spike.jpg
 ffmpeg -y -ss "$SEC" -i "$VID" -frames:v 1 -vf scale=512:-1 -q:v 3 "$FRAME" >/dev/null 2>&1

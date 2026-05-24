@@ -1,4 +1,4 @@
-# Security AI Agent (FPG Appliance)
+# Security AI Agent (Sentinel Appliance)
 
 > 這是 NemoClaw Sentinel 的底層平台說明。Hackathon 入口請見 [專案根目錄 README](../README.md)。
 
@@ -28,7 +28,7 @@ Ships in two SKUs with a single software stack:
             │                  ▼                              │
             │         ┌────────────────┐                      │
             │         │   openclaw     │  ← agent runtime     │
-            │         │   + fpg-tools  │  ← 5 CLI scripts     │
+            │         │   + sentinel-tools  │  ← 5 CLI scripts     │
             │         └─┬───────┬─────┬┘                      │
             │           │       │     │                       │
             │ ┌─────────▼─┐ ┌───▼───┐ │ ┌───────────────────┐ │
@@ -37,7 +37,7 @@ Ships in two SKUs with a single software stack:
             │ │ (Qwen VLM)│ │       │ │ │ object detection  │ │
             │ └───────────┘ └───────┘ │ └───────────────────┘ │
             │                                                 │
-            │            fpg_internal docker network          │
+            │            sentinel_internal docker network          │
             └─────────────────────────────────────────────────┘
                   ▲              ▲              ▲
         /config/event-types/  /data/video/   HF cache
@@ -52,7 +52,7 @@ Ships in two SKUs with a single software stack:
 | `mongodb`           | Event records, agent session state                         |
 | `llama-server`      | Vision-Language inference (Qwen3.6-35B-A3B + mmproj)       |
 | `falcon-perception` | Specialised object detection / OCR (TII Falcon Perception) |
-| `openclaw`          | Agent runtime, LINE/Telegram providers, dispatches `fpg-*` |
+| `openclaw`          | Agent runtime, LINE/Telegram providers, dispatches `sentinel-*` |
 | `cloudflared`       | Stable public webhook URL (replaces ngrok)                 |
 
 ## Quick Start
@@ -145,7 +145,7 @@ pushed per release (see `.gitea/workflows/build.yml`).
 ## Support & License
 
 Commercial license (software SKU) or support contract (appliance SKU).
-Contact AiUnion.
+Contact NemoClaw.
 
 ---
 

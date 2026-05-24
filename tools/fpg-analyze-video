@@ -1,4 +1,0 @@
-#!/bin/sh
-set -eu
-SCRIPT_PY="$(dirname "$0")/fpg-analyze-video.py"
-exec python3 "$SCRIPT_PY" "$@"

@@ -1,5 +1,5 @@
 # =============================================================================
-# Gitea Actions — CI for FPG Appliance
+# Gitea Actions — CI for Sentinel Appliance
 #
 # What this runs today:
 #   • YAML + JSON schema validation on config/event-types/*.yaml
@@ -71,5 +71,5 @@ jobs:
   #         platforms: linux/amd64,linux/arm64
   #         push: true
   #         tags: |
-  #           registry.aiunion.internal/fpg-appliance/openclaw:${{ github.ref_name }}
-  #           registry.aiunion.internal/fpg-appliance/openclaw:latest
+  #           registry.example.internal/sentinel-appliance/openclaw:${{ github.ref_name }}
+  #           registry.example.internal/sentinel-appliance/openclaw:latest

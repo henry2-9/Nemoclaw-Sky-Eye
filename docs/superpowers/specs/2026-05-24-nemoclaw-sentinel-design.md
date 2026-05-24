@@ -23,19 +23,19 @@
 
 ### 1.2 基礎(複用既有資產)
 
-本作品**擴充**既有 `Security-AI-Agent`(FPG Appliance),而非從零開始:
+本作品**擴充**既有 `Security-AI-Agent`(Sentinel Appliance),而非從零開始:
 
-- 5 個 `fpg-*` CLI 工具(`fpg-video-ingest` / `fpg-analyze-video` / `fpg-perception` / `fpg-event-query` / `fpg-violation-report`)= 調查 agent 的全套手腳。
+- 5 個 `sentinel-*` CLI 工具(`sentinel-video-ingest` / `sentinel-analyze-video` / `sentinel-perception` / `sentinel-event-query` / `sentinel-violation-report`)= 調查 agent 的全套手腳。
 - hermes runtime(`~/.hermes/hermes-agent`)原生支援 cron 排程 + **script injection**(pre-script 之 stdout 注入 agent context,`[SILENT]` 模式不吵人)。
 - 4 個 event-type config(`fire_smoke` / `intrusion` / `abnormal_crowd` / `abnormal_weather`)。
 - MongoDB 持久化、Telegram/LINE 通知管線、Falcon Perception 物件偵測服務。
-- 16 部素材影片 `/home/aiunion/FPG/video`,4 類 × 4 部,與 event-type 1:1 對應 → 當 **16 路模擬攝影機**。
+- 16 部素材影片 `~/sentinel-workspace/video`,4 類 × 4 部,與 event-type 1:1 對應 → 當 **16 路模擬攝影機**。
 
 ### 1.3 非目標(YAGNI)
 
 - 不接真實 RTSP 攝影機(以 playhead 回放模擬;RTSP 為未來升級)。
 - 不做現實世界致動(觸發實體警報/開 ticket/控制裝置)——本版只做「偵測→調查→分級→通知/報告」。
-- 不重構既有 FPG 既有功能,只新增自主層。
+- 不重構既有 Sentinel 既有功能,只新增自主層。
 
 ---
 
@@ -46,9 +46,9 @@
   ├─ 無候選 → 印 [SILENT] → Nemotron 不啟動            ← 成本控制 ④
   └─ 有候選 → JSON(channel, type, 粗證據)進 agent context
        └─> Nemotron-Omni 調查+分級 agent(多步 tool use)
-             ├─ fpg-analyze-video  確認+描述(video+audio 多模態)
-             ├─ fpg-perception     物件/分割細節證據
-             ├─ fpg-event-query    歷史 / 跨攝影機關聯 + 去重判斷
+             ├─ sentinel-analyze-video  確認+描述(video+audio 多模態)
+             ├─ sentinel-perception     物件/分割細節證據
+             ├─ sentinel-event-query    歷史 / 跨攝影機關聯 + 去重判斷
              ├─ 定 severity + 產生「附證據引用」的 incident JSON
              └─> nemoclaw-act --incident <json>           ← 唯一對外出口
                    ├─ ③ 接地/防注入(無引用→abstain;剝除注入字串)
@@ -71,7 +71,7 @@
 
 - **做什麼**:把 16 部影片映射為 channel,依牆鐘計算當前播放頭 `playhead = (now - start_epoch) % duration`,提供「當前時間窗」的幀/短片段,使行為近似 live stream。
 - **介面**:`get_window(channel, seconds=4) -> clip_path`、`get_frames(channel, n=2) -> [frame_path]`、`list_channels() -> [{channel, name, event_type}]`。
-- **依賴**:ffmpeg、`/home/aiunion/FPG/video`。channel↔影片↔event_type 對應表寫在 `nemoclaw/channels.yaml`。
+- **依賴**:ffmpeg、`~/sentinel-workspace/video`。channel↔影片↔event_type 對應表寫在 `nemoclaw/channels.yaml`。
 - **備註**:channel 編號與影片檔名**獨立**(沿用既有 bootstrap 規則,不可由檔名推 channel)。
 
 ### 3.2 感知 sweep(`nemoclaw/nemoclaw-sweep`,hermes `--script`)
@@ -84,9 +84,9 @@
 ### 3.3 Nemotron-Omni 調查+分級 agent(hermes agent + prompt)
 
 - **做什麼**:在候選 context 下,多步調查:
-  1. `fpg-analyze-video --channel <c> --question ...` → Nemotron-Omni 多模態(video+audio)**確認/描述**事件。
-  2. `fpg-perception --channel/--event-id --query ... --task segmentation` → 物件/分割細節證據。
-  3. `fpg-event-query` → 查近期/相關事件(跨攝影機關聯、去重歷史)。
+  1. `sentinel-analyze-video --channel <c> --question ...` → Nemotron-Omni 多模態(video+audio)**確認/描述**事件。
+  2. `sentinel-perception --channel/--event-id --query ... --task segmentation` → 物件/分割細節證據。
+  3. `sentinel-event-query` → 查近期/相關事件(跨攝影機關聯、去重歷史)。
   4. 綜合定 `severity ∈ {low, medium, high, critical}`,產出**附證據引用**的 incident。
 - **輸出**:**不直接通知**;呼叫 `nemoclaw-act --incident <json>`(agent 唯一對外指令)。
 - **核心模型**:`VLM_MODEL=nemotron_3_nano_omni`、`VLM_API_URL=http://127.0.0.1:31010/v1/...`(env 切換,工具碼不動)。
@@ -133,8 +133,8 @@ resource:
   "channel": "ch07", "event_type": "fire_smoke",
   "confidence": 0.86, "severity": "high",
   "summary": "...", "evidence_citations": [
-    {"tool": "fpg-analyze-video", "finding": "..."},
-    {"tool": "fpg-perception", "finding": "smoke region bbox ..."}
+    {"tool": "sentinel-analyze-video", "finding": "..."},
+    {"tool": "sentinel-perception", "finding": "smoke region bbox ..."}
   ],
   "media_refs": ["/state/..."], "recommended_action": "notify+escalate"
 }
@@ -143,7 +143,7 @@ resource:
 ### 3.5 持久化與 Dashboard
 
 - **MongoDB**(複用):`events`、`incidents`、`policy_decisions`、`audit_log`。
-- **Dashboard**(擴 `FPG/event_chart.html`):16 路 tile + 即時 incident feed + **政策決策 log(ALLOW/BLOCK/DEDUP/ABSTAIN + 理由)** + severity 分佈 + uptime/週期數/呼叫成本。
+- **Dashboard**(擴 `Sentinel/event_chart.html`):16 路 tile + 即時 incident feed + **政策決策 log(ALLOW/BLOCK/DEDUP/ABSTAIN + 理由)** + severity 分佈 + uptime/週期數/呼叫成本。
 
 ### 3.6 部署與監督
 
@@ -163,7 +163,7 @@ Security-AI-Agent/nemoclaw/
   redact.py           # PII 馬賽克
   agent-prompt.md     # Nemotron 調查+分級 agent 指令(含③輸入護欄)
   setup-routine.sh    # hermes cron 級聯設定
-  dashboard/          # 擴充自 FPG event_chart
+  dashboard/          # 擴充自 Sentinel event_chart
   tests/              # 政策閘 + 防注入 + 回放 eval
 ```
 

@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1.7
 # =============================================================================
-# FPG Appliance — openclaw agent + fpg-tools container
+# Sentinel Appliance — openclaw agent + sentinel-tools container
 #
 # Bundles:
 #   • openclaw gateway (LINE / Telegram providers, agent runtime)
-#   • fpg-tools CLI scripts (event-query, video-ingest, perception-client, ...)
+#   • sentinel-tools CLI scripts (event-query, video-ingest, perception-client, ...)
 #   • Python 3 + ffmpeg + the libs the tools depend on
 #
 # Multi-arch: ships for linux/amd64 (BYO x86 GPU host) and linux/arm64 (GB10
@@ -36,7 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN npm install -g openclaw@${OPENCLAW_VERSION} \
     && openclaw --version
 
-# ---- 3. python deps for fpg-tools ----------------------------------------
+# ---- 3. python deps for sentinel-tools ----------------------------------------
 # Pinned to broad ranges; the inner stack is small and stable. opencv-python-
 # headless avoids pulling X11 just for cv2.imread / cv2.imwrite.
 RUN python3 -m pip install \
@@ -48,11 +48,11 @@ RUN python3 -m pip install \
         "PyYAML>=6.0,<7" \
         "jsonschema>=4.20,<5"
 
-# ---- 4. fpg-tools ---------------------------------------------------------
-COPY tools/ /opt/fpg-tools/
-RUN chmod +x /opt/fpg-tools/fpg-* 2>/dev/null || true
+# ---- 4. sentinel-tools ---------------------------------------------------------
+COPY tools/ /opt/sentinel-tools/
+RUN chmod +x /opt/sentinel-tools/sentinel-* 2>/dev/null || true
 
-ENV PATH="/opt/fpg-tools:${PATH}"
+ENV PATH="/opt/sentinel-tools:${PATH}"
 
 # ---- 5. layout ------------------------------------------------------------
 RUN mkdir -p /config /state /data /state/openclaw /state/sessions /state/memory

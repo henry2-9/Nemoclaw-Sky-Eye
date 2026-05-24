@@ -14,9 +14,9 @@
 48 決策 | ALLOW 37  BLOCK 1  DEDUP 10  ABSTAIN 0 | 📣 實際送出 10 | ⚠️ 注入阻擋 7 | 🛡️ NemoClaw 治理 25 | 🧾 Flight Recorder 4
 ```
 
-### 鏡頭 2 — 真 NemoClaw 證明(`nemohermes fpg-sentinel status`)✅(修正後)
+### 鏡頭 2 — 真 NemoClaw 證明(`nemohermes sentinel status`)✅(修正後)
 ```
-Sandbox: fpg-sentinel
+Sandbox: sentinel
   Model:    nemotron_3_nano_omni
   Provider: vllm-local
   Inference (vllm backend): healthy (http://127.0.0.1:31010/v1/models)
@@ -71,7 +71,7 @@ using the nemotron_3_nano_omni model via the vllm-local provider.
 ## 結論
 七鏡頭 + 備援**全數通過**,demo 可錄。錄製前置:
 ```bash
-cd /home/aiunion/Security-AI-Agent && source nemoclaw/nemoclaw.env
+cd ~/Security-AI-Agent && source nemoclaw/nemoclaw.env
 python3 nemoclaw/dashboard/app.py    # :8099(若未跑)
 ```
 

@@ -62,7 +62,7 @@ def test_investigate_builds_incident_when_confirmed():
     assert inc["channel"] == "18"
     assert inc["confidence"] == 0.9
     assert inc["media_refs"] == ["/tmp/f.jpg"]
-    assert any(e["tool"] == "fpg-analyze-video" for e in inc["evidence_citations"])
+    assert any(e["tool"] == "sentinel-analyze-video" for e in inc["evidence_citations"])
 
 def test_investigate_applies_nemoclaw_triage():
     cand = {"channel": 18, "event_type": "fire_smoke", "frame_path": "/tmp/f.jpg",

@@ -13,7 +13,7 @@ def test_allow_notifies_and_audits(monkeypatch):
     audit_path = os.path.join(tempfile.mkdtemp(), "a.jsonl")
     inc = {"channel":"7","event_type":"fire_smoke","confidence":0.9,"severity":"high",
            "summary":"濃煙竄出","media_refs":["/tmp/x.jpg"],
-           "evidence_citations":[{"tool":"fpg-analyze-video","finding":"濃煙"}]}
+           "evidence_citations":[{"tool":"sentinel-analyze-video","finding":"濃煙"}]}
     d = act.run(inc, policy_path=_policy_path(), recent=[], audit_path=audit_path, now=datetime.datetime(2026,5,24,12,0))
     assert d["decision"] == "ALLOW"
     assert "text" in sent                       # 有通知
@@ -42,7 +42,7 @@ def test_notify_disabled_skips_external_send(monkeypatch):
     audit_path = os.path.join(tempfile.mkdtemp(), "a.jsonl")
     inc = {"trace_id":"t1","channel":"7","event_type":"fire_smoke","confidence":0.9,"severity":"high",
            "summary":"濃煙竄出","media_refs":["/tmp/x.jpg"],
-           "evidence_citations":[{"tool":"fpg-analyze-video","finding":"濃煙"}]}
+           "evidence_citations":[{"tool":"sentinel-analyze-video","finding":"濃煙"}]}
     d = act.run(inc, policy_path=_policy_path(), recent=[], audit_path=audit_path,
                 now=datetime.datetime(2026,5,24,12,0))
     assert d["decision"] == "ALLOW"

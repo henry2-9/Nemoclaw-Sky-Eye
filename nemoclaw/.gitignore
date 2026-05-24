@@ -1,3 +1,5 @@
+# 機器專屬 env(真實路徑/DB/憑證),不入庫
+nemoclaw.env.local
 # runtime 產物,不入庫
 audit.jsonl
 supervisor.log

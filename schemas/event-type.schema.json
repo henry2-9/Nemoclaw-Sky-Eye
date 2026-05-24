@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://aiunion.com.tw/schemas/event-type.schema.json",
-  "title": "FPG Event Type",
+  "$id": "https://example.com/schemas/event-type.schema.json",
+  "title": "Sentinel Event Type",
   "description": "Schema for a single event-type YAML file under config/event-types/.",
   "type": "object",
   "required": ["id", "key", "name", "classes", "vlm"],

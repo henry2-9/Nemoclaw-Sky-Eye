@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-fpg-perception — query the falcon-perception inference service for object
+sentinel-perception — query the falcon-perception inference service for object
 detection / segmentation in an image.
 
 Container variant: HTTP-only. The host-side legacy script could fall back to
@@ -9,9 +9,9 @@ because the openclaw container does not (and should not) carry a PyTorch
 runtime — the perception model lives in its own GPU-owning container service.
 
 Usage:
-  fpg-perception --image <path>      --query "person, helmet"
-  fpg-perception --event-id <id>     --query "car"
-  fpg-perception --channel <id>      --query "person" --task detection
+  sentinel-perception --image <path>      --query "person, helmet"
+  sentinel-perception --event-id <id>     --query "car"
+  sentinel-perception --channel <id>      --query "person" --task detection
 
 Output: JSON
 """
@@ -24,7 +24,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-WORKSPACE_ROOT = Path(os.environ.get("FPG_WORKSPACE_ROOT", "/state")).resolve()
+WORKSPACE_ROOT = Path(os.environ.get("SENTINEL_WORKSPACE", "/state")).resolve()
 PERCEPTION_SERVER_URL = os.environ.get(
     "FALCON_PERCEPTION_SERVER", "http://falcon-perception:18793"
 ).rstrip("/")

@@ -44,7 +44,7 @@ and is validated at container start.
 
 | Range | Who owns it |
 |---|---|
-| `1–99` | Reserved for AiUnion built-in types. Do not reuse. |
+| `1–99` | Reserved for NemoClaw built-in types. Do not reuse. |
 | `100–999` | Customer-defined types. **Choose an ID not already used in your deployment.** |
 | `1000+` | Third-party plugin marketplace (future). |
 
@@ -114,7 +114,7 @@ docker compose restart openclaw
 Validate:
 
 ```bash
-docker compose exec openclaw fpg-list-event-types
+docker compose exec openclaw sentinel-list-event-types
 # ... ppe_violation [150] ok
 ```
 

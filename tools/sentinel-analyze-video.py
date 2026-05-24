@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-fpg-analyze-video — 分析 FPG 頻道影片，或擷取指定秒數的幀
+sentinel-analyze-video — 分析 Sentinel 頻道影片，或擷取指定秒數的幀
 用法:
-  fpg-analyze-video --channel <id|name> --question <問題> [--fps <n>] [--max-tokens <n>]
-  fpg-analyze-video --channel <id|name> --extract-frame <秒數>
+  sentinel-analyze-video --channel <id|name> --question <問題> [--fps <n>] [--max-tokens <n>]
+  sentinel-analyze-video --channel <id|name> --extract-frame <秒數>
 輸出: JSON
 """
 import argparse
@@ -17,7 +17,7 @@ import urllib.request
 import urllib.parse
 from pathlib import Path
 
-WORKSPACE_ROOT = Path(os.environ.get("FPG_WORKSPACE_ROOT", "/home/aiunion/FPG")).resolve()
+WORKSPACE_ROOT = Path(os.environ.get("SENTINEL_WORKSPACE", os.path.expanduser("~/sentinel-workspace"))).resolve()
 os.chdir(WORKSPACE_ROOT)
 if str(WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(WORKSPACE_ROOT))
@@ -25,7 +25,7 @@ if str(WORKSPACE_ROOT) not in sys.path:
 API_URL   = os.environ.get("VLM_API_URL",   "http://127.0.0.1:1234/v1/chat/completions")
 API_KEY   = os.environ.get("VLM_API_KEY",   "lmstudio")
 MODEL     = os.environ.get("VLM_MODEL",     "qwen3.6-35b-a3b")
-PICTSHARE_URL = os.environ.get("PICTSHARE_URL", "https://info.aiunion.com.tw").rstrip("/")
+PICTSHARE_URL = os.environ.get("PICTSHARE_URL", "").rstrip("/")
 PICTSHARE_UPLOAD_CODE = os.environ.get("PICTSHARE_UPLOAD_CODE", "YourSecretCode123")
 
 
@@ -92,7 +92,7 @@ def get_video_info(path: str):
 
 def extract_one_frame(source: str, second: float) -> str | None:
     """擷取影片第 second 秒的幀，回傳暫存路徑"""
-    out = f"/tmp/fpg_frame_at_{int(second)}.jpg"
+    out = f"/tmp/sentinel_frame_at_{int(second)}.jpg"
     subprocess.run(
         ["ffmpeg", "-y", "-ss", str(second), "-i", source,
          "-frames:v", "1", "-vf", "scale=1280:-1", "-q:v", "2", out],
@@ -108,7 +108,7 @@ def extract_frames(source: str, fps: float = 1.0, max_frames: int = 120):
     frames = []
     for i in range(total):
         t = i / fps
-        out = f"/tmp/fpg_vframe_{i:05d}.jpg"
+        out = f"/tmp/sentinel_vframe_{i:05d}.jpg"
         subprocess.run(
             ["ffmpeg", "-y", "-ss", str(t), "-i", source,
              "-frames:v", "1", "-vf", "scale=512:-1", "-q:v", "3", out],
@@ -208,7 +208,7 @@ def main():
             sys.exit(1)
 
         public_url = upload_image(frame_path)
-        # 保留本地檔案供 fpg-perception --image 使用（不刪除）
+        # 保留本地檔案供 sentinel-perception --image 使用（不刪除）
 
         print(json.dumps({
             "ok": True,

@@ -1,5 +1,5 @@
 # ============================================================================
-# FPG Appliance — docker-compose
+# Sentinel Appliance — docker-compose
 #
 # Single compose file serves both delivery SKUs:
 #   (a) Hardware Appliance — preloaded image, autostart on boot
@@ -9,7 +9,7 @@
 # the `.env` file beside it (see `.env.example`).
 # ============================================================================
 
-name: fpg-appliance
+name: sentinel-appliance
 
 services:
   # --------------------------------------------------------------------------
@@ -21,12 +21,12 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
-      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-fpg}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME:-sentinel}
       TZ: ${TZ:-Asia/Taipei}
     volumes:
       - mongo_data:/data/db
     networks:
-      - fpg_internal
+      - sentinel_internal
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 30s
@@ -60,7 +60,7 @@ services:
     volumes:
       - ${VLM_MODELS_HOST_PATH:-./models}:/models:ro
     networks:
-      - fpg_internal
+      - sentinel_internal
     deploy:
       resources:
         reservations:
@@ -77,13 +77,13 @@ services:
 
   # --------------------------------------------------------------------------
   # falcon-perception — TII Falcon Perception VLM (object detection / OCR)
-  # Owns its own GPU slot; openclaw → fpg-perception → this service via HTTP.
+  # Owns its own GPU slot; openclaw → sentinel-perception → this service via HTTP.
   # --------------------------------------------------------------------------
   falcon-perception:
     build:
       context: ./images/falcon-perception
       dockerfile: Dockerfile
-    image: fpg-appliance/falcon-perception:${APP_VERSION:-0.1.0}
+    image: sentinel-appliance/falcon-perception:${APP_VERSION:-0.1.0}
     restart: unless-stopped
     environment:
       FALCON_PERCEPTION_HOST: 0.0.0.0
@@ -95,9 +95,9 @@ services:
       - hf_cache:/hf-cache
       # Mounted so falcon-perception can read images referenced by absolute
       # path inside /data (the same path the openclaw container sees).
-      - ${FPG_DATA_HOST_PATH:-./data}:/data:ro
+      - ${Sentinel_DATA_HOST_PATH:-./data}:/data:ro
     networks:
-      - fpg_internal
+      - sentinel_internal
     deploy:
       resources:
         reservations:
@@ -113,7 +113,7 @@ services:
       start_period: 600s   # cold model download can take several minutes
 
   # --------------------------------------------------------------------------
-  # openclaw — agent gateway + fpg-tools (messaging channels, tool dispatch)
+  # openclaw — agent gateway + sentinel-tools (messaging channels, tool dispatch)
   # --------------------------------------------------------------------------
   openclaw:
     build:
@@ -121,7 +121,7 @@ services:
       # (separate config files come in via the read-only /config bind mount).
       context: .
       dockerfile: images/openclaw/Dockerfile
-    image: fpg-appliance/openclaw:${APP_VERSION:-0.1.0}
+    image: sentinel-appliance/openclaw:${APP_VERSION:-0.1.0}
     restart: unless-stopped
     depends_on:
       mongodb:
@@ -149,7 +149,7 @@ services:
       PICTSHARE_UPLOAD_CODE: ${PICTSHARE_UPLOAD_CODE:-}
 
       # ---- Persistence ----
-      MONGO_URI: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/${MONGO_DB_NAME:-fpg}?authSource=admin
+      MONGO_URI: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/${MONGO_DB_NAME:-sentinel}?authSource=admin
 
       # ---- Messaging channels ----
       LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
@@ -162,15 +162,15 @@ services:
       PUBLIC_WEBHOOK_URL: ${PUBLIC_WEBHOOK_URL:-}
 
       # ---- Runtime ----
-      FPG_WORKSPACE_ROOT: /state
+      SENTINEL_WORKSPACE: /state
       TZ: ${TZ:-Asia/Taipei}
       NODE_ENV: production
     volumes:
       - ./config:/config:ro
       - openclaw_state:/state
-      - ${FPG_DATA_HOST_PATH:-./data}:/data
+      - ${Sentinel_DATA_HOST_PATH:-./data}:/data
     networks:
-      - fpg_internal
+      - sentinel_internal
     # Control/webchat port — bound to localhost only. Public traffic comes
     # through cloudflared, not this port.
     ports:
@@ -189,7 +189,7 @@ services:
       openclaw:
         condition: service_started
     networks:
-      - fpg_internal
+      - sentinel_internal
 
 # ============================================================================
 volumes:
@@ -198,5 +198,5 @@ volumes:
   hf_cache:
 
 networks:
-  fpg_internal:
+  sentinel_internal:
     driver: bridge

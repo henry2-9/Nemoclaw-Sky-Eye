@@ -119,7 +119,7 @@ def investigate(candidate, analyze_fn, triage_fn=None):
         "playhead_sec": candidate.get("playhead_sec"),
         "falcon_query": candidate.get("falcon_query"),
         "evidence_citations": [
-            {"tool": "fpg-analyze-video", "finding": g["summary"]},
+            {"tool": "sentinel-analyze-video", "finding": g["summary"]},
             {"tool": "nemoclaw-sweep",
              "finding": f"falcon counts {candidate.get('cheap_evidence', {}).get('counts')}"},
         ],

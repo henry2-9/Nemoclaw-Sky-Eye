@@ -1,8 +1,8 @@
 #!/bin/sh
-# Container entry for fpg-video-ingest. The host-side legacy wrapper invoked a
+# Container entry for sentinel-video-ingest. The host-side legacy wrapper invoked a
 # specific micromamba env; inside the openclaw container python3 already has
 # every dep, so we just exec the .py directly.
 set -eu
 
-SCRIPT_PY="$(dirname "$0")/fpg-video-ingest.py"
+SCRIPT_PY="$(dirname "$0")/sentinel-video-ingest.py"
 exec python3 "$SCRIPT_PY" "$@"

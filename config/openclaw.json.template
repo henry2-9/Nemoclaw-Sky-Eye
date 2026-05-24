@@ -1,6 +1,6 @@
 {
   "meta": {
-    "managedBy": "fpg-appliance",
+    "managedBy": "sentinel-appliance",
     "renderedFrom": "config/openclaw.json.template"
   },
   "models": {
@@ -51,11 +51,11 @@
     },
     "list": [
       {
-        "id": "fpg",
+        "id": "sentinel",
         "default": true,
-        "name": "FPG",
+        "name": "Sentinel",
         "workspace": "/state",
-        "identity": { "name": "AiUnion Agent" },
+        "identity": { "name": "NemoClaw Agent" },
         "model": {
           "primary": "lmstudio/${VLM_MODEL}",
           "fallbacks": ["lmstudio/${VLM_MODEL}"]
@@ -72,13 +72,13 @@
             "host": "gateway",
             "security": "allowlist",
             "ask": "off",
-            "pathPrepend": ["/opt/fpg-tools/bin"],
+            "pathPrepend": ["/opt/sentinel-tools/bin"],
             "safeBins": [
-              "fpg-event-query",
-              "fpg-violation-report",
-              "fpg-analyze-video",
-              "fpg-perception",
-              "fpg-video-ingest",
+              "sentinel-event-query",
+              "sentinel-violation-report",
+              "sentinel-analyze-video",
+              "sentinel-perception",
+              "sentinel-video-ingest",
               "rg", "grep", "find", "ls", "cat", "sed", "head", "tail",
               "jq", "pwd", "wc"
             ],

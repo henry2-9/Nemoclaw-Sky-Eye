@@ -1,9 +1,9 @@
 #!/bin/sh
-# Container entry for fpg-event-query. Argument dispatching mirrors the legacy
+# Container entry for sentinel-event-query. Argument dispatching mirrors the legacy
 # host-side wrapper; only the python resolution changed (now uses container PATH).
 set -eu
 
-SCRIPT_PY="$(dirname "$0")/fpg-event-query.py"
+SCRIPT_PY="$(dirname "$0")/sentinel-event-query.py"
 
 COMMAND=""
 LIMIT=""

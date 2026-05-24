@@ -16,11 +16,11 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 
-WORKSPACE_ROOT = Path(os.environ.get("FPG_WORKSPACE_ROOT", "/home/aiunion/FPG")).resolve()
+WORKSPACE_ROOT = Path(os.environ.get("SENTINEL_WORKSPACE", os.path.expanduser("~/sentinel-workspace"))).resolve()
 EVENT_DATA_ROOT = WORKSPACE_ROOT / "event_data"
 LOCAL_TZ = ZoneInfo("Asia/Taipei") if ZoneInfo else timezone(timedelta(hours=8))
-PICTSHARE_URL = str(os.environ.get("PICTSHARE_URL", "https://info.aiunion.com.tw")).strip().rstrip("/")
-PICTSHARE_PUBLIC_URL = str(os.environ.get("PICTSHARE_PUBLIC_URL", "https://info.aiunion.com.tw")).strip().rstrip("/")
+PICTSHARE_URL = str(os.environ.get("PICTSHARE_URL", "")).strip().rstrip("/")
+PICTSHARE_PUBLIC_URL = str(os.environ.get("PICTSHARE_PUBLIC_URL", "")).strip().rstrip("/")
 PICTSHARE_UPLOAD_CODE = str(os.environ.get("PICTSHARE_UPLOAD_CODE", "YourSecretCode123")).strip()
 PUBLIC_MEDIA_CACHE: dict[str, str | None] = {}
 
@@ -48,7 +48,7 @@ TYPE_ALIASES = {
     "action": 1,
     "intrusion": 2,
     "safety": 3,
-    # fpg-video-ingest types
+    # sentinel-video-ingest types
     "火煙偵測": 4, "fire_smoke": 4, "fire smoke": 4,
     "異常人流": 5, "abnormal_crowd": 5, "abnormal crowd": 5,
     "異常氣候": 6, "abnormal_weather": 6, "abnormal weather": 6,
@@ -150,7 +150,7 @@ CLASS_ALIASES = {
         "侷限作業氧氣瓶主管": 7,
         "氧氣瓶主管": 7,
     },
-    # fpg-video-ingest class aliases
+    # sentinel-video-ingest class aliases
     4: {
         "fire": 0, "火": 0, "火焰": 0,
         "smoke": 1, "煙": 1, "煙霧": 1,
@@ -338,7 +338,7 @@ def local_time(value: Any) -> str | None:
         except Exception:
             return str(value)
     if dt.tzinfo is None:
-        # FPG writes Event_time with datetime.now(), so naive datetimes are local wall clock.
+        # Sentinel writes Event_time with datetime.now(), so naive datetimes are local wall clock.
         return dt.strftime("%Y-%m-%d %H:%M:%S")
     dt = dt.astimezone(LOCAL_TZ)
     return dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -741,9 +741,9 @@ def enrich_event(doc: dict[str, Any]) -> dict[str, Any]:
         or metadata.get("description")
         or ""
     ).strip()
-    aiunion_summary = str(
-        enriched.get("AIUnion_summary")
-        or metadata.get("aiunion_summary")
+    ai_summary = str(
+        enriched.get("ai_summary")
+        or metadata.get("ai_summary")
         or ""
     ).strip()
     channel_id = int(enriched.get("Channel_id", 0))
@@ -771,7 +771,7 @@ def enrich_event(doc: dict[str, Any]) -> dict[str, Any]:
         "safety_task_id": safety_task_id,
         "safety_task_title": safety_task_title,
         "description": description,
-        "aiunion_summary": aiunion_summary,
+        "ai_summary": ai_summary,
         "channel_id": channel_id,
         "camera": camera,
         "confirm_state": enriched.get("Confirm_state") or "pending",
@@ -806,7 +806,7 @@ def projection() -> dict[str, int]:
         "confidence": 1,
         "track_id": 1,
         "Description": 1,
-        "AIUnion_summary": 1,
+        "ai_summary": 1,
         "metadata": 1,
         "bbox": 1,
     }
@@ -883,7 +883,7 @@ def command_summary(args: argparse.Namespace) -> None:
             "ok": True,
             "command": "summary",
             "workspace": str(WORKSPACE_ROOT),
-            "database": "AiUnion_test_db",
+            "database": "NemoClaw_test_db",
             "collection": "EVENT_RECORD",
             "filters": info,
             "total_events": total_events,
@@ -984,7 +984,7 @@ def add_common_filters(parser: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Read-only FPG MongoDB event query helper")
+    parser = argparse.ArgumentParser(description="Read-only Sentinel MongoDB event query helper")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     summary = subparsers.add_parser("summary")
