@@ -18,7 +18,12 @@ def sweep_channels(channels):
     cands = []
     for c in channels:
         query, keys, thr = RULES.get(c["event_type"], ("person", ["person"], 1))
-        frame = feed.grab_frame(c["path"], os.path.join(tempfile.gettempdir(), f"sweep_{c['id']}.jpg"))
+        duration = feed.video_duration(c["path"])
+        playhead = feed.playhead(duration)
+        frame = feed.grab_frame(
+            c["path"], os.path.join(tempfile.gettempdir(), f"sweep_{c['id']}.jpg"),
+            second=playhead,
+        )
         if not frame:
             continue
         res = falcon_client.detect(frame, query)
@@ -29,6 +34,8 @@ def sweep_channels(channels):
             cands.append({
                 "channel": c["id"], "channel_name": c.get("name", ""),
                 "event_type": c["event_type"], "frame_path": frame,
+                "video_path": c["path"], "playhead_sec": playhead,
+                "falcon_query": query,
                 "cheap_evidence": {"counts": counts}, "ts": time.time(),
             })
     return cands

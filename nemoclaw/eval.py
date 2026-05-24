@@ -5,7 +5,7 @@ import os, sys, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 def summarize(decisions):
-    notified = [d for d in decisions if d.get("decision") == "ALLOW" and "notify" in (d.get("actions") or [])]
+    notified = [d for d in decisions if _notified(d)]
     return {
         "total": len(decisions),
         "allow": sum(1 for d in decisions if d.get("decision") == "ALLOW"),
@@ -16,6 +16,11 @@ def summarize(decisions):
         "injection_flagged": sum(1 for d in decisions if d.get("injection_detected")),
         "unique_notified_events": len({(d.get("channel"), d.get("event_type")) for d in notified}),
     }
+
+def _notified(d):
+    if "notification_sent" in d:
+        return bool(d.get("notification_sent"))
+    return d.get("decision") == "ALLOW" and "notify" in (d.get("actions") or [])
 
 def run_replay():
     path = os.environ.get("NEMOCLAW_AUDIT_PATH")

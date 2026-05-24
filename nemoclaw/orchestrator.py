@@ -3,8 +3,11 @@
 Nemotron 仍是核心推理(每個候選的確認與分級都由它做);編排由程式碼掌控以求穩定。
 純函式可單元測試;run_cycle 以注入式 fn 便於測試。"""
 import re, json
+import flight_recorder
 
 EVENT_PRIORITY = {"fire_smoke": 0, "intrusion": 1, "abnormal_crowd": 2, "abnormal_weather": 3}
+SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+INJECTION_HINTS = ("忽略", "系統測試", "別通報", "演習", "ignore", "drill", "disable")
 HAZARD = {
     "fire_smoke": "火災或濃煙",
     "intrusion": "未授權人員闖入",
@@ -56,38 +59,102 @@ def parse_grading(answer):
         "visible_text": str(d.get("visible_text", ""))[:200],
     }
 
+def _cheap_text(candidate, grading):
+    """Collect OCR/visible text from both Nemotron and cheap evidence.
+
+    The attack-scene demo should not depend on the model always copying every
+    overlaid word into visible_text. Cheap OCR/evidence text is still observed
+    scene content, so it must flow into the policy injection scanner too.
+    """
+    parts = []
+    if grading.get("visible_text"):
+        parts.append(str(grading.get("visible_text")))
+    cheap = candidate.get("cheap_evidence", {}) or {}
+    for key in ("ocr_text", "visible_text", "text"):
+        if cheap.get(key):
+            parts.append(str(cheap.get(key)))
+    return " | ".join(p for p in parts if p)
+
+def _looks_like_injection(text):
+    low = (text or "").lower()
+    return any(h.lower() in low for h in INJECTION_HINTS)
+
+def _triage_severity(visual_severity, proposed_severity, cheap_text):
+    """Allow triage to escalate, but do not let prompt-injected scene text
+    downgrade high-confidence visual hazards."""
+    if proposed_severity not in SEVERITY_RANK:
+        return visual_severity, None
+    if (SEVERITY_RANK[proposed_severity] < SEVERITY_RANK.get(visual_severity, 0)
+            and SEVERITY_RANK.get(visual_severity, 0) >= SEVERITY_RANK["high"]
+            and _looks_like_injection(cheap_text)):
+        return visual_severity, f"triage downgrade {proposed_severity}->{visual_severity} ignored: scene text is untrusted"
+    return proposed_severity, None
+
 def investigate(candidate, analyze_fn, triage_fn=None):
     """Nemotron 確認+分級(視覺);未確認回 None。
     若提供 triage_fn(真 NemoClaw-Hermes 文字 triage),用其 severity/action 治理決策。"""
-    answer = analyze_fn(candidate["channel"], build_question(candidate["event_type"]))
+    trace_id = candidate.get("trace_id")
+    question = build_question(candidate["event_type"])
+    flight_recorder.record_stage(trace_id, "nemotron_question", {
+        "channel": candidate.get("channel"),
+        "event_type": candidate.get("event_type"),
+        "question": question,
+    })
+    answer = analyze_fn(candidate["channel"], question)
+    flight_recorder.record_stage(trace_id, "nemotron_raw_answer", {"answer": answer})
     g = parse_grading(answer)
+    flight_recorder.record_stage(trace_id, "nemotron_grading", g)
     if not g["confirmed"]:
         return None
+    cheap_text = _cheap_text(candidate, g)
     incident = {
+        "trace_id": trace_id,
         "channel": str(candidate["channel"]),
         "event_type": candidate["event_type"],
         "confidence": g["confidence"],
         "severity": g["severity"],
         "summary": g["summary"],
         "media_refs": [candidate["frame_path"]] if candidate.get("frame_path") else [],
+        "source_video_path": candidate.get("video_path"),
+        "playhead_sec": candidate.get("playhead_sec"),
+        "falcon_query": candidate.get("falcon_query"),
         "evidence_citations": [
             {"tool": "fpg-analyze-video", "finding": g["summary"]},
             {"tool": "nemoclaw-sweep",
              "finding": f"falcon counts {candidate.get('cheap_evidence', {}).get('counts')}"},
         ],
-        "cheap_text": g.get("visible_text", ""),   # Nemotron 回報的畫面文字 → 供政策閘掃注入
+        "cheap_text": cheap_text,   # 供政策閘掃畫面內注入
         "governed_by": "local",
     }
     if triage_fn:
         verdict = triage_fn(candidate["event_type"], g["summary"],
                             candidate.get("cheap_evidence", {}))
+        flight_recorder.record_stage(trace_id, "nemoclaw_triage", verdict or {"degraded": True})
         if verdict:
             if verdict.get("severity"):
-                incident["severity"] = verdict["severity"]   # 真 NemoClaw 治理後的 severity
+                sev, guardrail = _triage_severity(g["severity"], verdict["severity"], cheap_text)
+                incident["severity"] = sev   # 真 NemoClaw 治理後的 severity(受視覺安全下限保護)
+                if guardrail:
+                    incident["triage_guardrail"] = guardrail
             incident["recommended_action"] = verdict.get("recommended_action")
             incident["governed_by"] = verdict.get("governed_by", "nemoclaw-openshell")
             incident["evidence_citations"].append(
                 {"tool": "nemoclaw-hermes", "finding": verdict.get("rationale", "")})
+            if incident.get("triage_guardrail"):
+                incident["evidence_citations"].append(
+                    {"tool": "orchestrator", "finding": incident["triage_guardrail"]})
+    flight_recorder.record_stage(trace_id, "incident_built", {
+        "channel": incident.get("channel"),
+        "event_type": incident.get("event_type"),
+        "confidence": incident.get("confidence"),
+        "severity": incident.get("severity"),
+        "summary": incident.get("summary"),
+        "cheap_text": incident.get("cheap_text"),
+        "governed_by": incident.get("governed_by"),
+        "triage_guardrail": incident.get("triage_guardrail"),
+        "source_video_path": incident.get("source_video_path"),
+        "playhead_sec": incident.get("playhead_sec"),
+    })
     return incident
 
 def run_cycle(channels, sweep_fn, analyze_fn, act_fn, max_n=4, exclude=None, triage_fn=None):
@@ -97,6 +164,15 @@ def run_cycle(channels, sweep_fn, analyze_fn, act_fn, max_n=4, exclude=None, tri
     selected = select_candidates(cands, max_n, exclude=exclude)
     results = []
     for c in selected:
+        c.setdefault("trace_id", flight_recorder.new_trace_id(c.get("channel"), c.get("event_type")))
+        flight_recorder.record_stage(c.get("trace_id"), "sweep_selected", {
+            "channel": c.get("channel"),
+            "event_type": c.get("event_type"),
+            "cheap_evidence": c.get("cheap_evidence"),
+            "frame_path": c.get("frame_path"),
+            "video_path": c.get("video_path"),
+            "playhead_sec": c.get("playhead_sec"),
+        })
         inc = investigate(c, analyze_fn, triage_fn=triage_fn)
         if inc:
             results.append(act_fn(inc))

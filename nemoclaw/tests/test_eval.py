@@ -10,10 +10,12 @@ def test_summary_counts_and_unique_events():
         {"channel":"6","event_type":"intrusion","decision":"ALLOW","actions":["log"]},  # log-only 不算 notified
         {"channel":"7","event_type":"fire_smoke","decision":"ABSTAIN"},
         {"channel":"8","event_type":"fire_smoke","decision":"ALLOW","actions":["log","notify"],"injection_detected":True},
+        {"channel":"9","event_type":"fire_smoke","decision":"ALLOW","actions":["log","notify"],
+         "notification_sent":False},  # demo no-notify:planned but not sent
     ]
     s = ev.summarize(decisions)
-    assert s["total"] == 6
-    assert s["notified"] == 2          # 只有帶 notify 的兩筆
+    assert s["total"] == 7
+    assert s["notified"] == 2          # notification_sent=False 不算真的送出
     assert s["deduped"] == 1
     assert s["blocked"] == 1
     assert s["abstained"] == 1
