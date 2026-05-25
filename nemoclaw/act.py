@@ -13,6 +13,8 @@ def load_policy(path=None):
 def _notification_text(incident, decision):
     sev = incident.get("severity", "").upper()
     text = f"🚨【{sev}】{incident.get('channel')} {incident.get('event_type')}\n{incident.get('summary','')}"
+    if decision.get("escalated"):
+        text = "🔴 二級升級(escalate)\n" + text
     if decision["injection_detected"]:
         text += "\n⚠️ 已偵測並忽略畫面內注入指令"
     artifacts = decision.get("media_artifacts") or {}
@@ -40,12 +42,23 @@ def run(incident, policy_path=None, recent=None, audit_path=None, now=None):
     decision["redacted"] = False
     decision["notification_sent"] = False
     decision["media_artifacts"] = {}
+    # 自主分級處置(由 NemoClaw 政策路由,無人核准):escalate=二級升級、report=自動產報告
+    allow = decision["decision"] == "ALLOW"
+    decision["escalated"] = allow and "escalate" in decision["actions"]
+    decision["report_path"] = None
 
-    if decision["decision"] == "ALLOW" and os.environ.get("NEMOCLAW_MEDIA_ENABLED", "1") != "0":
+    if allow and os.environ.get("NEMOCLAW_MEDIA_ENABLED", "1") != "0":
         try:
             decision["media_artifacts"] = media.prepare_event_media(incident)
         except Exception as e:
             decision["reasons"].append(f"media artifact failed: {e}")
+
+    if allow and "report" in decision["actions"]:
+        try:
+            import report
+            decision["report_path"] = report.generate_incident_report(incident, decision)
+        except Exception as e:
+            decision["reasons"].append(f"report failed: {e}")
 
     if decision["decision"] == "ALLOW" and "notify" in decision["actions"]:
         if os.environ.get("NEMOCLAW_NOTIFY_DISABLED", "0") == "1":

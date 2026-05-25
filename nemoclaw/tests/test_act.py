@@ -51,6 +51,41 @@ def test_notify_disabled_skips_external_send(monkeypatch):
     assert d["notification_sent"] is False
     assert any("notify disabled" in r for r in d["reasons"])
 
+def test_critical_escalates_and_autogenerates_report(monkeypatch, tmp_path):
+    monkeypatch.setenv("NEMOCLAW_MEDIA_ENABLED", "0")
+    monkeypatch.setenv("NEMOCLAW_MEDIA_DIR", str(tmp_path))
+    sent = {}
+    monkeypatch.setattr(act.notify, "notify_from_env",
+                        lambda text, photo_path=None: sent.update(text=text, photo=photo_path))
+    monkeypatch.setattr(act.redact, "redact_pii", lambda p, out_path=None: p + "_red.jpg")
+    audit_path = os.path.join(tempfile.mkdtemp(), "a.jsonl")
+    inc = {"trace_id": "t-crit", "channel": "5", "event_type": "fire_smoke",
+           "confidence": 0.95, "severity": "critical", "summary": "大量濃煙",
+           "media_refs": ["/tmp/x.jpg"], "governed_by": "nemoclaw-openshell",
+           "evidence_citations": [{"tool": "sentinel-analyze-video", "finding": "fire"}]}
+    d = act.run(inc, policy_path=_policy_path(), recent=[], audit_path=audit_path,
+                now=datetime.datetime(2026, 5, 26, 12, 0))
+    assert d["decision"] == "ALLOW"
+    assert d["escalated"] is True                       # critical → 自主二級升級
+    assert d["report_path"] and os.path.exists(d["report_path"])  # 自主產報告
+    assert "二級升級" in sent["text"]                    # 通知含升級標記
+
+
+def test_high_escalates_without_report(monkeypatch):
+    monkeypatch.setenv("NEMOCLAW_MEDIA_ENABLED", "0")
+    monkeypatch.setattr(act.notify, "notify_from_env", lambda text, photo_path=None: None)
+    monkeypatch.setattr(act.redact, "redact_pii", lambda p, out_path=None: p)
+    audit_path = os.path.join(tempfile.mkdtemp(), "a.jsonl")
+    inc = {"trace_id": "t-high", "channel": "7", "event_type": "fire_smoke",
+           "confidence": 0.9, "severity": "high", "summary": "濃煙",
+           "media_refs": ["/tmp/x.jpg"],
+           "evidence_citations": [{"tool": "x", "finding": "y"}]}
+    d = act.run(inc, policy_path=_policy_path(), recent=[], audit_path=audit_path,
+                now=datetime.datetime(2026, 5, 26, 12, 0))
+    assert d["escalated"] is True       # high 路由含 escalate
+    assert d["report_path"] is None     # high 不含 report
+
+
 def test_notification_text_includes_media_links():
     text = act._notification_text(
         {"channel":"19","event_type":"fire_smoke","severity":"critical","summary":"濃煙"},
