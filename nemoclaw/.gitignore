@@ -6,6 +6,7 @@ sentinel.db
 sentinel.db-journal
 supervisor.log
 flight_recorder.jsonl
+attack_matrix.json
 media_events/
 .supervisor.pid
 __pycache__/

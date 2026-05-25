@@ -15,6 +15,7 @@ import media
 
 AUDIT = os.environ.get("NEMOCLAW_AUDIT_PATH",
                        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "audit.jsonl"))
+ATTACK_MATRIX = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "attack_matrix.json")
 
 def _rows():
     if not os.path.exists(AUDIT):
@@ -82,6 +83,40 @@ def _efficiency_metrics():
 
 
 COLOR = {"ALLOW": "#0a7", "BLOCK": "#c33", "DEDUP": "#888", "ABSTAIN": "#e90"}
+
+
+def _render_attack_matrix():
+    """安全挑戰矩陣面板:多模態 prompt-injection 防禦結果(讀 attack_matrix.json)。"""
+    if not os.path.exists(ATTACK_MATRIX):
+        return ""
+    try:
+        rep = json.load(open(ATTACK_MATRIX, encoding="utf-8"))
+    except Exception:
+        return ""
+    rows = ""
+    for r in rep.get("rows", []):
+        ok = r.get("defended")
+        defend = ("<span style='color:#2ecc71;font-weight:700'>✅ 守住</span>" if ok
+                  else "<span style='color:#e74c3c;font-weight:700'>❌ 失守</span>")
+        inj = "⚠️" if r.get("injection_flagged") else "—"
+        sev = ("<span style='color:#2ecc71'>保留 critical</span>" if r.get("severity_retained")
+               else f"<span style='color:#e74c3c'>{html.escape(str(r.get('severity_after')))}</span>")
+        pol = html.escape(str(r.get("policy_decision", ""))) + (" +notify" if r.get("still_notifies") else "")
+        rows += (f"<tr><td>{html.escape(r.get('name',''))}</td>"
+                 f"<td><code>{html.escape(r.get('modality',''))}</code></td>"
+                 f"<td>{html.escape(r.get('attack',''))}</td>"
+                 f"<td style='text-align:center'>{inj}</td>"
+                 f"<td>{sev}</td><td style='text-align:center'>{defend}</td>"
+                 f"<td>{'🛡️ '+html.escape(str(r.get('governed_by','')))}</td>"
+                 f"<td>{pol}</td></tr>")
+    n, t = rep.get("defended", 0), rep.get("total", 0)
+    badge = (f"<span style='color:#2ecc71;font-weight:700'>{n}/{t} 攻擊全數防禦</span>"
+             if rep.get("all_defended") else f"<span style='color:#e74c3c;font-weight:700'>{n}/{t} 有缺口</span>")
+    gen = html.escape(str(rep.get("generated_at", "")))
+    return (f"<h3 style='margin:18px 0 6px'>🛡️ 安全挑戰矩陣 — 多模態 prompt-injection 防禦:{badge} "
+            f"<span class=muted style='font-size:12px'>({gen})</span></h3>"
+            f"<table><tr><th>攻擊管道</th><th>模態</th><th>攻擊內容</th><th>注入</th>"
+            f"<th>severity</th><th>防禦</th><th>治理</th><th>政策</th></tr>{rows}</table>")
 
 def _trace_link(trace_id):
     if not trace_id:
@@ -213,16 +248,19 @@ class H(BaseHTTPRequestHandler):
             f"<td>{_media_links(r)}</td>"
             f"<td>{'; '.join(r.get('reasons') or [])}</td></tr>"
             for r in reversed(rows[-60:]))
+        attack_matrix = _render_attack_matrix()
         html = f"""<html><head><meta charset=utf-8><meta http-equiv=refresh content=5>
 <title>NemoClaw Sentinel</title>
 <style>body{{font-family:system-ui,sans-serif;margin:24px;background:#0b0e14;color:#cdd}}
-h2{{margin:0}} .bar{{margin:12px 0;font-size:15px}}
+h2{{margin:0}} h3{{color:#9bd}} .bar{{margin:12px 0;font-size:15px}} .muted{{color:#789}}
 table{{border-collapse:collapse;width:100%;font-size:13px}}
 th,td{{border:1px solid #243;padding:6px 8px;text-align:left}} th{{background:#162}}
 </style></head><body>
 <h2>🛡️ NemoClaw Sentinel — 自主巡檢治理稽核</h2>
 <div class=bar>{cards}</div>
 <div class=bar style="font-size:14px;color:#9bd">⚡ 級聯效率:{eff}</div>
+{attack_matrix}
+<h3 style="margin:18px 0 6px">📋 決策稽核軌跡</h3>
 <table><tr><th>時間</th><th>Ch</th><th>類型</th><th>決策</th><th>治理</th><th>注入</th><th>動作</th><th>Flight</th><th>媒體</th><th>理由</th></tr>
 {items}</table></body></html>"""
         self._send_html(html)
