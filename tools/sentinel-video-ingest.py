@@ -440,7 +440,8 @@ def insert_event(type_id: int, class_id: int, description: str,
             "image_url": image_url,
         },
     })
-    oid = str(result.inserted_id)
+    # mongo 回 InsertOneResult(有 .inserted_id);sqlite 直接回字串 id
+    oid = str(getattr(result, "inserted_id", result))
     cam = f"cam{channel_id}"
     event_data = WORKSPACE_ROOT / "event_data"
     event_data.mkdir(exist_ok=True)

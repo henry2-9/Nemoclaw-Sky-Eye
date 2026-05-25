@@ -8,6 +8,18 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+# SQLite 後端:走獨立輕量路徑,完全不載入 bson / FPG mongo `database` 模組
+# (它們在無 mongo 環境會 import 失敗)。被當模組匯入時不短路,維持 mongo 行為。
+if (
+    os.environ.get("NEMOCLAW_DB_BACKEND", "mongo").strip().lower() == "sqlite"
+    and __name__ == "__main__"
+):
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "nemoclaw"))
+    from event_query_sqlite import main as _sqlite_main
+
+    _sqlite_main()
+    raise SystemExit(0)
+
 from bson import ObjectId
 
 try:

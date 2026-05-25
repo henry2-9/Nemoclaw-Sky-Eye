@@ -86,17 +86,29 @@ class EventStore:
 
     def insert_event(self, event):
         ev = dict(event or {})
-        eid = str(ev.get("event_id") or ev.get("_id") or uuid.uuid4().hex[:24])
-        meta = ev.get("metadata")
+
+        def g(*keys):
+            # 同時接受 nemoclaw 小寫鍵與 FPG mongo 風格大寫鍵(Event_type_id 等)
+            for k in keys:
+                v = ev.get(k)
+                if v is not None:
+                    return v
+            return None
+
+        eid = str(g("event_id", "_id") or uuid.uuid4().hex[:24])
+        meta = g("metadata")
+        et = g("event_time", "Event_time")
+        # Full_image/Full_video 在 FPG 是布林旗標(非路徑),不可當路徑寫入
         with _conn() as c:
             c.execute("""INSERT OR REPLACE INTO events
                 (event_id,camera_id,type_id,class_id,description,metadata,image_path,clip_path,event_time,created_time)
                 VALUES (?,?,?,?,?,?,?,?,?,?)""", (
-                eid, ev.get("camera_id") or ev.get("channel_id"), ev.get("type_id"),
-                ev.get("class_id"), ev.get("description"),
+                eid, g("camera_id", "channel_id", "Channel_id"),
+                g("type_id", "Event_type_id"), g("class_id", "Event_class_id"),
+                g("description", "Description"),
                 json.dumps(meta, ensure_ascii=False) if meta is not None else None,
-                ev.get("image_path") or ev.get("combined_image"), ev.get("clip_path"),
-                str(ev.get("event_time") or _now()), _now()))
+                g("image_path", "combined_image"), g("clip_path", "video_path"),
+                str(et) if et is not None else _now(), _now()))
             c.commit()
         return eid
 

@@ -180,6 +180,7 @@ nemoclaw/
   world_channels.yaml   世界公開攝影機(台灣國道 CCTV live URL)
   register_channels.py  登錄 channel(file 走 add_file_channel;url 走 stream)
   sqlite_store.py       SQLite 後端(channels + events,免 MongoDB)
+  event_query_sqlite.py sentinel-event-query 的 sqlite 實作(summary/latest/event/media/cameras)
   db_factory.py         後端工廠(NEMOCLAW_DB_BACKEND=sqlite/mongo 切換)
   feed.py               playhead 模擬 live
   falcon_client.py      Falcon /infer 客戶端
@@ -214,7 +215,9 @@ Python 3 · vLLM(Nemotron-3-Nano-Omni-30B-NVFP4)· Falcon Perception ·
 - **`mongo`** — 沿用 FPG 共用的 `database` 模組(MongoDB)。
 
 所有工具/`register_channels` 透過 `db_factory.py` 取得後端,切換不必改各處程式。
-> 註:`sentinel-event-query` 的進階查詢深度依賴 mongo 聚合,仍需 `mongo` 後端;nemoclaw 操作級聯(sweep→Nemotron→triage→gate)不使用它,在 sqlite 下完整運作。
+
+**`sentinel-event-query` 基本查詢(summary / latest / event / media / cameras)在 sqlite 後端可用** — 由 `event_query_sqlite.py` 提供,完全不載入 bson / mongo `database` 模組;sqlite 後端執行 CLI 時自動轉派,輸出 JSON 形狀對齊 mongo 版。`sqlite_store.insert_event` 同時相容 FPG mongo 風格大寫鍵(`Event_type_id`/`Channel_id`/`Description` 等),因此 `sentinel-video-ingest` 寫入的事件可被正確查詢。
+> 限制:event type/class 的**名稱別名查表**與 FPG 安全作業聚合仍依賴 mongo;sqlite 後端的 `--type` 支援內建/video-ingest 別名(0-7),`--class` 僅吃數字,且無人工 confirm 狀態(`--status` 過濾不套用)。需要這些進階查詢時用 `NEMOCLAW_DB_BACKEND=mongo`。
 
 複用既有 Security-AI-Agent / Sentinel 約 80% 資產(5 個 `sentinel-*` 工具、event-types、通知管線、持久化)。
 ```
