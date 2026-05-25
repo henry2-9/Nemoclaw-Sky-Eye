@@ -11,3 +11,5 @@ media_events/
 .supervisor.pid
 __pycache__/
 *.pyc
+health.jsonl
+latest_briefing.txt
