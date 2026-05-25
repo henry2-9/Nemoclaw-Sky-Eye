@@ -84,6 +84,99 @@ def _efficiency_metrics():
 
 COLOR = {"ALLOW": "#0a7", "BLOCK": "#c33", "DEDUP": "#888", "ABSTAIN": "#e90"}
 
+# ── 深色玻璃擬態主題(主頁與 trace 頁共用)──
+STYLE = """
+*{box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,'Noto Sans TC',sans-serif;margin:0;
+  min-height:100vh;color:#e7e9f3;background:#090a18;
+  background-image:
+    radial-gradient(900px 520px at 10% -10%, rgba(124,92,255,.30), transparent 60%),
+    radial-gradient(820px 520px at 94% 4%, rgba(0,194,255,.22), transparent 55%),
+    radial-gradient(760px 640px at 50% 116%, rgba(16,233,170,.14), transparent 60%),
+    linear-gradient(160deg,#090a18 0%,#11122c 46%,#0a1226 100%);
+  background-attachment:fixed}
+.wrap{max-width:1220px;margin:0 auto;padding:24px 20px 64px}
+a{color:#7fd6ff;text-decoration:none} a:hover{text-decoration:underline}
+code{color:#a7f3d0;background:rgba(255,255,255,.06);padding:1px 6px;border-radius:6px;font-size:12px}
+.glass{background:rgba(255,255,255,.055);backdrop-filter:blur(16px) saturate(140%);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,.10);
+  border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06)}
+.head{display:flex;justify-content:space-between;align-items:center;gap:16px;
+  padding:18px 24px;margin-bottom:20px;flex-wrap:wrap}
+.brand{font-size:23px;font-weight:800;letter-spacing:.5px;
+  background:linear-gradient(90deg,#a78bfa,#22d3ee,#34d399);-webkit-background-clip:text;
+  background-clip:text;color:transparent}
+.sub{color:#9aa3c7;font-size:12.5px;margin-top:3px}
+.status{display:flex;gap:15px;flex-wrap:wrap;font-size:12.5px;color:#c7cdf0;align-items:center}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;
+  background:#34d399;box-shadow:0 0 9px #34d399;animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.45}}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin-bottom:18px}
+.tile{padding:17px 18px;position:relative;overflow:hidden}
+.tile .v{font-size:30px;font-weight:800;line-height:1.05}
+.tile .l{color:#9aa3c7;font-size:12.5px;margin-top:5px}
+.tile .accent{position:absolute;left:0;top:0;bottom:0;width:4px}
+.panel{padding:18px 22px;margin-bottom:18px}
+.panel h3{margin:0 0 14px;font-size:15px;font-weight:700;color:#e3e6ff;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.muted{color:#8b93b8}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:14px}
+.stat .v{font-size:22px;font-weight:700} .stat .v.hi{color:#22d3ee}
+.stat .l{color:#9aa3c7;font-size:12px;margin-top:3px} .pct{font-size:13px;color:#34d399;font-weight:700}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+th,td{padding:9px 11px;text-align:left;border-bottom:1px solid rgba(255,255,255,.07);vertical-align:top}
+th{color:#aab2da;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+tbody tr:hover{background:rgba(255,255,255,.045)} tbody tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;
+  border:1px solid transparent;white-space:nowrap}
+.b-allow{color:#34d399;background:rgba(52,211,153,.13);border-color:rgba(52,211,153,.32)}
+.b-block{color:#f87171;background:rgba(248,113,113,.13);border-color:rgba(248,113,113,.32)}
+.b-dedup{color:#94a3b8;background:rgba(148,163,184,.13);border-color:rgba(148,163,184,.32)}
+.b-abstain{color:#fbbf24;background:rgba(251,191,36,.13);border-color:rgba(251,191,36,.32)}
+.b-gov{color:#7dd3fc;background:rgba(125,211,252,.12);border-color:rgba(125,211,252,.3)}
+.b-inj{color:#fca5a5;background:rgba(252,165,165,.12);border-color:rgba(252,165,165,.3)}
+.ok{color:#34d399;font-weight:700} .bad{color:#f87171;font-weight:700}
+.media-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+video,img{width:100%;max-height:440px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
+  border-radius:12px;object-fit:contain}
+.empty{border:1px dashed rgba(255,255,255,.18);padding:32px;color:#8b93b8;border-radius:12px;text-align:center}
+h4{margin:6px 0}
+"""
+
+_BADGE_CLS = {"ALLOW": "b-allow", "BLOCK": "b-block", "DEDUP": "b-dedup", "ABSTAIN": "b-abstain"}
+
+
+def _tile(value, label, accent):
+    return (f"<div class='tile glass'>"
+            f"<span class=accent style='background:{accent};box-shadow:0 0 16px {accent}'></span>"
+            f"<div class=v>{value}</div><div class=l>{label}</div></div>")
+
+
+def _eff_stat(value, label, hi=False):
+    return (f"<div class=stat><div class='v{' hi' if hi else ''}'>{value}</div>"
+            f"<div class=l>{label}</div></div>")
+
+
+def _decision_badge(decision):
+    d = str(decision or "")
+    return f"<span class='badge {_BADGE_CLS.get(d, 'b-dedup')}'>{html.escape(d)}</span>"
+
+
+def _incident_row(r):
+    gov_b = "<span class='badge b-gov'>🛡 NemoClaw</span>" if r.get("governed_by") == "nemoclaw-openshell" else ""
+    inj_b = "<span class='badge b-inj'>⚠ injection</span>" if r.get("injection_detected") else ""
+    return ("<tr>"
+            f"<td class=muted>{html.escape(str(r.get('ts_iso', '')))}</td>"
+            f"<td>{html.escape(str(r.get('channel', '')))}</td>"
+            f"<td>{html.escape(str(r.get('event_type', '')))}</td>"
+            f"<td>{_decision_badge(r.get('decision', ''))}</td>"
+            f"<td>{gov_b}</td><td>{inj_b}</td>"
+            f"<td>{html.escape(', '.join(r.get('actions') or []))}</td>"
+            f"<td>{_trace_link(r.get('trace_id'))}</td>"
+            f"<td>{_media_links(r)}</td>"
+            f"<td class=muted>{html.escape('; '.join(r.get('reasons') or []))}</td>"
+            "</tr>")
+
 
 def _render_attack_matrix():
     """安全挑戰矩陣面板:多模態 prompt-injection 防禦結果(讀 attack_matrix.json)。"""
@@ -95,28 +188,26 @@ def _render_attack_matrix():
         return ""
     rows = ""
     for r in rep.get("rows", []):
-        ok = r.get("defended")
-        defend = ("<span style='color:#2ecc71;font-weight:700'>✅ 守住</span>" if ok
-                  else "<span style='color:#e74c3c;font-weight:700'>❌ 失守</span>")
-        inj = "⚠️" if r.get("injection_flagged") else "—"
-        sev = ("<span style='color:#2ecc71'>保留 critical</span>" if r.get("severity_retained")
-               else f"<span style='color:#e74c3c'>{html.escape(str(r.get('severity_after')))}</span>")
+        defend = "<span class=ok>✅ 守住</span>" if r.get("defended") else "<span class=bad>❌ 失守</span>"
+        inj = "<span class='badge b-inj'>⚠ flagged</span>" if r.get("injection_flagged") else "<span class=muted>—</span>"
+        sev = ("<span class=ok>保留 critical</span>" if r.get("severity_retained")
+               else f"<span class=bad>{html.escape(str(r.get('severity_after')))}</span>")
         pol = html.escape(str(r.get("policy_decision", ""))) + (" +notify" if r.get("still_notifies") else "")
-        rows += (f"<tr><td>{html.escape(r.get('name',''))}</td>"
+        rows += (f"<tr><td><b>{html.escape(r.get('name',''))}</b></td>"
                  f"<td><code>{html.escape(r.get('modality',''))}</code></td>"
-                 f"<td>{html.escape(r.get('attack',''))}</td>"
-                 f"<td style='text-align:center'>{inj}</td>"
-                 f"<td>{sev}</td><td style='text-align:center'>{defend}</td>"
-                 f"<td>{'🛡️ '+html.escape(str(r.get('governed_by','')))}</td>"
+                 f"<td class=muted>{html.escape(r.get('attack',''))}</td>"
+                 f"<td>{inj}</td><td>{sev}</td><td>{defend}</td>"
+                 f"<td><span class='badge b-gov'>🛡 {html.escape(str(r.get('governed_by','')))}</span></td>"
                  f"<td>{pol}</td></tr>")
     n, t = rep.get("defended", 0), rep.get("total", 0)
-    badge = (f"<span style='color:#2ecc71;font-weight:700'>{n}/{t} 攻擊全數防禦</span>"
-             if rep.get("all_defended") else f"<span style='color:#e74c3c;font-weight:700'>{n}/{t} 有缺口</span>")
+    badge = (f"<span class='badge b-allow' style='font-size:13px'>{n}/{t} 攻擊全數防禦</span>"
+             if rep.get("all_defended") else f"<span class='badge b-block' style='font-size:13px'>{n}/{t} 有缺口</span>")
     gen = html.escape(str(rep.get("generated_at", "")))
-    return (f"<h3 style='margin:18px 0 6px'>🛡️ 安全挑戰矩陣 — 多模態 prompt-injection 防禦:{badge} "
-            f"<span class=muted style='font-size:12px'>({gen})</span></h3>"
-            f"<table><tr><th>攻擊管道</th><th>模態</th><th>攻擊內容</th><th>注入</th>"
-            f"<th>severity</th><th>防禦</th><th>治理</th><th>政策</th></tr>{rows}</table>")
+    return (f"<section class='panel glass'><h3>🛡 安全挑戰矩陣 · 多模態 prompt-injection 防禦 {badge}"
+            f"<span class=muted style='font-size:11px;font-weight:400'>{gen}</span></h3>"
+            f"<table><thead><tr><th>攻擊管道</th><th>模態</th><th>攻擊內容</th><th>注入</th>"
+            f"<th>severity</th><th>防禦</th><th>治理</th><th>政策</th></tr></thead>"
+            f"<tbody>{rows}</tbody></table></section>")
 
 def _trace_link(trace_id):
     if not trace_id:
@@ -150,7 +241,7 @@ def _render_media_panel(row):
     query = artifacts.get("falcon_query") or ""
     counts = artifacts.get("falcon_counts") or {}
     if not (clip or annot or frame):
-        return "<section class=media><h3>事件媒體</h3><p class=muted>尚無錄影切片或 Falcon 標記圖。</p></section>"
+        return "<section class='panel glass media'><h3>事件媒體</h3><p class=muted>尚無錄影切片或 Falcon 標記圖。</p></section>"
     video_html = (
         f"<video controls preload='metadata' src='{html.escape(clip)}'></video>"
         if clip else "<div class=empty>無錄影切片</div>"
@@ -161,7 +252,7 @@ def _render_media_panel(row):
         f"<a href='{html.escape(image_url)}'><img src='{html.escape(image_url)}' alt='{image_title}'></a>"
         if image_url else "<div class=empty>無標記圖</div>"
     )
-    return f"""<section class=media>
+    return f"""<section class='panel glass media'>
 <h3>事件媒體</h3>
 <div class=media-grid>
   <div><h4>錄影切片</h4>{video_html}</div>
@@ -186,20 +277,16 @@ def _render_trace(trace_id):
     )
     if not rows:
         items = "<tr><td colspan=4>No records for this trace.</td></tr>"
-    return f"""<html><head><meta charset=utf-8>
-<title>Incident Flight Recorder</title>
-<style>body{{font-family:system-ui,sans-serif;margin:24px;background:#0b0e14;color:#cdd}}
-a{{color:#6cf}} table{{border-collapse:collapse;width:100%;font-size:13px}}
-th,td{{border:1px solid #243;padding:6px 8px;text-align:left;vertical-align:top}} th{{background:#162}}
-code{{color:#9ef}} .media{{margin:18px 0 22px}} .media-grid{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}
-video,img{{width:100%;max-height:440px;background:#05070a;border:1px solid #243;object-fit:contain}}
-h3,h4{{margin:8px 0}} .muted{{color:#9ab}} .empty{{border:1px dashed #345;padding:32px;color:#789}}</style></head><body>
-<h2>Incident Flight Recorder</h2>
-<p><a href="/">← audit dashboard</a></p>
-<p><code>{html.escape(trace_id or "")}</code></p>
+    return f"""<!doctype html><html lang=zh-Hant><head><meta charset=utf-8>
+<title>Incident Flight Recorder</title><style>{STYLE}</style></head><body><div class=wrap>
+<header class='head glass'><div>
+  <div class=brand>🛡 Incident Flight Recorder</div>
+  <div class=sub><a href="/">← 回稽核 dashboard</a> &nbsp;·&nbsp; <code>{html.escape(trace_id or "")}</code></div>
+</div></header>
 {media_panel}
-<table><tr><th>#</th><th>時間</th><th>階段</th><th>payload</th></tr>{items}</table>
-</body></html>"""
+<section class='panel glass'><h3>🧾 事件時間軸</h3>
+<table><thead><tr><th>#</th><th>時間</th><th>階段</th><th>payload</th></tr></thead><tbody>{items}</tbody></table>
+</section></div></body></html>"""
 
 class H(BaseHTTPRequestHandler):
     def do_HEAD(self):
@@ -224,45 +311,52 @@ class H(BaseHTTPRequestHandler):
         rows = _rows()
         s, notified, inj, gov = _stats(rows)
         flight_count = len(flight_recorder.group_by_trace(flight_recorder.load()))
-        cards = (f"<b>{len(rows)}</b> 決策 &nbsp;|&nbsp; "
-                 f"<span style='color:#0a7'>ALLOW {s['ALLOW']}</span> &nbsp; "
-                 f"<span style='color:#c33'>BLOCK {s['BLOCK']}</span> &nbsp; "
-                 f"<span style='color:#888'>DEDUP {s['DEDUP']}</span> &nbsp; "
-                 f"<span style='color:#e90'>ABSTAIN {s['ABSTAIN']}</span> &nbsp;|&nbsp; "
-                 f"📣 實際送出 {notified} &nbsp;|&nbsp; ⚠️ 注入阻擋 {inj} &nbsp;|&nbsp; "
-                 f"<span style='color:#6cf'>🛡️ NemoClaw 治理 {gov}</span> &nbsp;|&nbsp; "
-                 f"🧾 Flight Recorder {flight_count}")
         m = _efficiency_metrics()
-        eff = (f"🔁 cycles {m['cycles']} &nbsp;|&nbsp; 👁️ cheap候選 {m['candidates']} &nbsp;|&nbsp; "
-               f"<span style='color:#6cf'>🧠 Nemotron 喚醒 {m['investigations']}</span> &nbsp; "
-               f"✅ 確認 {m['confirmed']} &nbsp; 🚫 過濾正常 {m['filtered']} &nbsp; ⏭️ cheap擋下未送 {m['capped']} "
-               f"&nbsp;|&nbsp; ⏱️ 調查延遲 中位 {m['median_latency']}s / p95 {m['p95_latency']}s")
-        items = "".join(
-            f"<tr><td>{r.get('ts_iso','')}</td><td>{r.get('channel','')}</td>"
-            f"<td>{r.get('event_type','')}</td>"
-            f"<td style='color:{COLOR.get(r.get('decision',''),'#000')};font-weight:700'>{r.get('decision','')}</td>"
-            f"<td>{'🛡️' if r.get('governed_by')=='nemoclaw-openshell' else ''}</td>"
-            f"<td>{'⚠️' if r.get('injection_detected') else ''}</td>"
-            f"<td>{', '.join(r.get('actions') or [])}</td>"
-            f"<td>{_trace_link(r.get('trace_id'))}</td>"
-            f"<td>{_media_links(r)}</td>"
-            f"<td>{'; '.join(r.get('reasons') or [])}</td></tr>"
-            for r in reversed(rows[-60:]))
+        status_html = (
+            "<span><span class=dot></span>Nemotron</span>"
+            "<span><span class=dot></span>Falcon</span>"
+            "<span><span class=dot></span>NemoClaw</span>"
+            "<span class=muted>7×24 · 零人工 · 每 5s 自動刷新</span>")
+        dist = " ".join(
+            f"<span class='badge {cls}'>{name} {s[name]}</span>"
+            for name, cls in (("ALLOW", "b-allow"), ("BLOCK", "b-block"),
+                              ("DEDUP", "b-dedup"), ("ABSTAIN", "b-abstain")))
+        tiles = (
+            _tile(len(rows), "決策總數", "#a78bfa")
+            + _tile(gov, "🛡 NemoClaw 治理", "#22d3ee")
+            + _tile(notified, "📣 實際送出", "#34d399")
+            + _tile(inj, "⚠ 注入阻擋", "#f87171")
+            + _tile(flight_count, "🧾 Flight 軌跡", "#818cf8")
+            + "<div class='tile glass'><div class=l style='margin-bottom:9px'>決策分佈</div>"
+            + f"<div style='display:flex;gap:6px;flex-wrap:wrap'>{dist}</div></div>")
+        rate = round(100 * m['investigations'] / m['candidates']) if m.get('candidates') else 0
+        eff = "".join([
+            _eff_stat(m['cycles'], "🔁 巡檢輪數"),
+            _eff_stat(m['candidates'], "👁 cheap 候選"),
+            _eff_stat(f"{m['investigations']} <span class=pct>{rate}%</span>", "🧠 Nemotron 喚醒", hi=True),
+            _eff_stat(m['confirmed'], "✅ 確認"),
+            _eff_stat(m['filtered'], "🚫 過濾正常"),
+            _eff_stat(m['capped'], "⏭ cheap 擋下"),
+            _eff_stat(f"{m['median_latency']}s / {m['p95_latency']}s", "⏱ 延遲 中位/p95"),
+        ])
+        items = "".join(_incident_row(r) for r in reversed(rows[-60:]))
         attack_matrix = _render_attack_matrix()
-        html = f"""<html><head><meta charset=utf-8><meta http-equiv=refresh content=5>
-<title>NemoClaw Sentinel</title>
-<style>body{{font-family:system-ui,sans-serif;margin:24px;background:#0b0e14;color:#cdd}}
-h2{{margin:0}} h3{{color:#9bd}} .bar{{margin:12px 0;font-size:15px}} .muted{{color:#789}}
-table{{border-collapse:collapse;width:100%;font-size:13px}}
-th,td{{border:1px solid #243;padding:6px 8px;text-align:left}} th{{background:#162}}
-</style></head><body>
-<h2>🛡️ NemoClaw Sentinel — 自主巡檢治理稽核</h2>
-<div class=bar>{cards}</div>
-<div class=bar style="font-size:14px;color:#9bd">⚡ 級聯效率:{eff}</div>
+        html = f"""<!doctype html><html lang=zh-Hant><head><meta charset=utf-8>
+<meta http-equiv=refresh content=5><title>NemoClaw Sentinel</title>
+<style>{STYLE}</style></head><body><div class=wrap>
+<header class='head glass'>
+  <div><div class=brand>🛡 NEMOCLAW SENTINEL</div>
+  <div class=sub>自主巡檢治理稽核 · Nemotron 看 · NemoClaw 守 · 單台 GB10</div></div>
+  <div class=status>{status_html}</div>
+</header>
+<div class=tiles>{tiles}</div>
+<section class='panel glass'><h3>⚡ 級聯效率 <span class=muted style='font-size:11px;font-weight:400'>便宜感知連續掃,只有出事才喚醒 Nemotron</span></h3>
+<div class=stats>{eff}</div></section>
 {attack_matrix}
-<h3 style="margin:18px 0 6px">📋 決策稽核軌跡</h3>
-<table><tr><th>時間</th><th>Ch</th><th>類型</th><th>決策</th><th>治理</th><th>注入</th><th>動作</th><th>Flight</th><th>媒體</th><th>理由</th></tr>
-{items}</table></body></html>"""
+<section class='panel glass'><h3>📋 決策稽核軌跡</h3>
+<table><thead><tr><th>時間</th><th>Ch</th><th>類型</th><th>決策</th><th>治理</th><th>注入</th><th>動作</th><th>Flight</th><th>媒體</th><th>理由</th></tr></thead>
+<tbody>{items}</tbody></table></section>
+</div></body></html>"""
         self._send_html(html)
 
     def _send_html(self, body):
