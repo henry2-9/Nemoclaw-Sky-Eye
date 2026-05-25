@@ -3,7 +3,7 @@ gating:
   dedup_window_seconds: 300
   action_allowlist: [log, notify, escalate, report]
   severity_routing:
-    low:      { actions: [log] }
+    low:      { actions: [log, notify], channels: [telegram] }
     medium:   { actions: [log, notify], channels: [telegram] }
     high:     { actions: [log, notify, escalate], channels: [telegram] }
     critical: { actions: [log, notify, escalate, report], channels: [telegram] }
@@ -15,4 +15,5 @@ grounding:
   injection_patterns: ["忽略.*警報", "系統測試", "別通報", "這是演習", "ignore .*alert", "this is a drill", "disable.*alarm"]
 resource:
   max_notifications_per_hour: 30
-  quiet_hours: { start: "23:00", end: "07:00", allow_severity: [critical] }
+  # 任何告警都要通知(含夜間):允許所有嚴重度穿透安靜時段
+  quiet_hours: { start: "23:00", end: "07:00", allow_severity: [low, medium, high, critical] }
