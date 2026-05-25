@@ -75,12 +75,12 @@ curl -fsSL https://www.nvidia.com/nemoclaw.sh | bash   # 需 sudo(Docker/CDI)
 宣告於 `policy.yaml`,由 `nemoclaw-act`(agent 唯一對外出口)強制:
 
 1. **動作閘門/分級** — 信心 <0.7 BLOCK;同事件 5 分內 DEDUP;severity 路由(可設定;**目前所有嚴重度都通知**,high→+escalate、critical→+report);動作 allowlist。
-2. **隱私/PII** — 外發影像前自動模糊人臉;原始影像不離開 GB10。
+2. **隱私/PII** — 對外只發 **redacted artifact**(`redacted_clip.mp4` / `*_redacted.jpg`,逐幀人臉模糊);原始 `clip.mp4`/`frame.jpg`/`falcon_annotated.jpg` 僅留本機,dashboard `/media` 對原始檔回 **403**;通知圖片與連結皆指向 redacted,manifest 標 `privacy_processed`。
 3. **接地/防注入** — 無證據引用 → ABSTAIN;畫面/字幕文字一律當「被觀察證據」,即使寫「忽略所有警報」也不照做,並標記 `injection_detected`。
    另有視覺安全下限:高信心火災/濃煙不能只因畫面文字寫「系統測試」就被 triage 降級。
 4. **資源/運行** — 通知限流、安靜時段(夜間非 critical 只記錄)、per-cycle watchdog。
 
-每個決策 append 至 `audit.jsonl`(+ MongoDB),含 decision / reasons / policy_hits → **治理可稽核**。
+每個決策 append 至 **`audit.jsonl`**(含 decision / reasons / policy_hits / governed_by),檔案持久化、**服務重啟後仍可查詢**,dashboard 直接讀取 → **治理可稽核**。(MongoDB 為選用:`audit.append(..., mongo_collection=...)` 可接,預設走 JSONL。)
 同時寫入 `flight_recorder.jsonl`,把單一事件從 sweep 候選、Nemotron 原始回答、NemoClaw
 triage 到 policy decision 串成一條可點開的 **incident flight recorder**。
 放行事件會產生 `media_events/<trace_id>/`:

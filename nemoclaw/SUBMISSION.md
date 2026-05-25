@@ -17,8 +17,8 @@ Falcon sweep(便宜,連續) → 〔有候選〕→ Nemotron-Omni 多模態確認
 | **核心模型 = Nemotron** ✅ | 每個事件的多模態確認/描述/分級皆由 `Nemotron-3-Nano-Omni-30B`(本機 vLLM :31010)推理 |
 | **autonomous / no human in loop** ✅ | supervisor 迴圈 7×24 自跑,無人觸發、無人確認 |
 | **long-running 架構** ✅ | cheap-sweep 連續、Nemotron 按需喚起、per-cycle watchdog;systemd 開機自啟 |
-| **real task / production-ready** ✅ | 真實工安事件全鏈處理;docker 部署、MongoDB 持久化、優雅降級 |
-| **persistent deployment** ✅ | `restart: unless-stopped` + 稽核 jsonl + flight recorder |
+| **real task / production-ready** ✅ | 真實工安事件全鏈處理;systemd 常駐、JSONL 稽核持久化、優雅降級 |
+| **persistent deployment** ✅ | systemd `Restart=always` + 稽核 `audit.jsonl` + `flight_recorder.jsonl`(重啟可查) |
 | **bonus:NemoClaw policy guardrails** ✅✅ | **裝了真正的 NVIDIA NemoClaw**(OpenShell 沙箱 + policy + intent verification),治理決策 `governed_by=nemoclaw-openshell` |
 
 ## 三個差異化亮點
