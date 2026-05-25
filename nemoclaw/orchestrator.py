@@ -13,6 +13,7 @@ HAZARD = {
     "intrusion": "未授權人員闖入",
     "abnormal_crowd": "異常人群聚集或擁擠",
     "abnormal_weather": "異常天候(淹水/強風/倒樹等)",
+    "traffic": "交通事故、車輛拋錨、嚴重壅塞,或有人/障礙物在車道上",
 }
 
 def select_candidates(cands, max_n=4, exclude=None):
