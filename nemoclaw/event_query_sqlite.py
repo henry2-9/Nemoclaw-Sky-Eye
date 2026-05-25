@@ -26,6 +26,17 @@ WORKSPACE_ROOT = os.path.abspath(
 )
 EVENT_DATA_ROOT = os.path.join(WORKSPACE_ROOT, "event_data")
 
+# 供 sentinel-violation-report 在 sqlite 後端把本模組當 QUERY drop-in 使用
+try:
+    from zoneinfo import ZoneInfo
+    LOCAL_TZ = ZoneInfo("Asia/Taipei")
+except Exception:  # pragma: no cover
+    from datetime import timezone
+    LOCAL_TZ = timezone(timedelta(hours=8))
+PICTSHARE_URL = os.environ.get("PICTSHARE_URL", "").strip().rstrip("/")
+PICTSHARE_PUBLIC_URL = os.environ.get("PICTSHARE_PUBLIC_URL", "").strip().rstrip("/")
+PICTSHARE_UPLOAD_CODE = os.environ.get("PICTSHARE_UPLOAD_CODE", "").strip()
+
 # 自包含的 type 對照(不需 mongo)。涵蓋內建 0-3 與 video-ingest 的 4-7。
 TYPE_ALIASES = {
     "ppe": 0, "behavior": 1, "behaviour": 1, "intrusion": 2, "safety": 3,
@@ -162,6 +173,49 @@ def enrich(ev, cams):
         "confirm_state": "auto",  # nemoclaw 全自動,無人工 confirm 流程
         "metadata": ev.get("metadata") or {},
     }
+
+
+# ── sentinel-violation-report 的 drop-in 介面(sqlite 後端把本模組當 QUERY)──
+_CAMS_CACHE = None
+
+
+def _cams():
+    global _CAMS_CACHE
+    if _CAMS_CACHE is None:
+        _CAMS_CACHE = cameras_map()
+    return _CAMS_CACHE
+
+
+def enrich_event(row):
+    """對齊 mongo QUERY.enrich_event:豐富化並附上媒體區塊供 PDF 縮圖/連結。"""
+    out = enrich(row, _cams())
+    eid = str(row.get("event_id"))
+    m = media_candidates(eid, row)
+    out["full_image"] = {"name": eid, "candidates": m["full_image"]}
+    out["crop_image"] = {"name": None, "candidates": []}  # sqlite 不存 crop 圖
+    out["video"] = {"name": eid, "candidates": m["video"]}
+    out["event_class_title"] = out.get("event_type_name")
+    out["event_class_name"] = out.get("event_type_name")
+    out["ai_summary"] = str((out.get("metadata") or {}).get("ai_summary") or "")
+    return out
+
+
+def attach_media_delivery(event):
+    """媒體已於 enrich_event 附上;補 media delivery 指令(對齊 mongo 版回傳)。"""
+    event.update(media_directive({
+        "full_image": (event.get("full_image") or {}).get("candidates", []),
+        "video": (event.get("video") or {}).get("candidates", []),
+    }))
+    return event
+
+
+def filter_violations_only(rows):
+    """違規優先:safety(type 3)以外、或 metadata.has_violation 為真者視為違規。"""
+    out = []
+    for r in rows:
+        if r.get("type_id") != 3 or (r.get("metadata") or {}).get("has_violation"):
+            out.append(r)
+    return out
 
 
 def _norm_type(raw):

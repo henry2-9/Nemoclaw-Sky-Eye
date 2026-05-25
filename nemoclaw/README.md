@@ -216,7 +216,7 @@ Python 3 · vLLM(Nemotron-3-Nano-Omni-30B-NVFP4)· Falcon Perception ·
 
 所有工具/`register_channels` 透過 `db_factory.py` 取得後端,切換不必改各處程式。
 
-**`sentinel-event-query` 基本查詢(summary / latest / event / media / cameras)在 sqlite 後端可用** — 由 `event_query_sqlite.py` 提供,完全不載入 bson / mongo `database` 模組;sqlite 後端執行 CLI 時自動轉派,輸出 JSON 形狀對齊 mongo 版。`sqlite_store.insert_event` 同時相容 FPG mongo 風格大寫鍵(`Event_type_id`/`Channel_id`/`Description` 等),因此 `sentinel-video-ingest` 寫入的事件可被正確查詢。
+**`sentinel-event-query` 基本查詢(summary / latest / event / media / cameras)與 `sentinel-violation-report` 基本報表在 sqlite 後端可用** — 由 `event_query_sqlite.py` 提供,完全不載入 bson / mongo `database` 模組;sqlite 後端執行 CLI 時自動轉派,輸出 JSON / PDF 形狀對齊 mongo 版。`violation-report` 在 sqlite 後端把 `event_query_sqlite` 當 QUERY drop-in(`filter_events`/`enrich_event`/`attach_media_delivery`/`filter_violations_only`),PDF 產生本身與後端無關。`sqlite_store.insert_event` 同時相容 FPG mongo 風格大寫鍵(`Event_type_id`/`Channel_id`/`Description` 等),因此 `sentinel-video-ingest` 寫入的事件可被正確查詢與入報。
 > 限制:event type/class 的**名稱別名查表**與 FPG 安全作業聚合仍依賴 mongo;sqlite 後端的 `--type` 支援內建/video-ingest 別名(0-7),`--class` 僅吃數字,且無人工 confirm 狀態(`--status` 過濾不套用)。需要這些進階查詢時用 `NEMOCLAW_DB_BACKEND=mongo`。
 
 複用既有 Security-AI-Agent / Sentinel 約 80% 資產(5 個 `sentinel-*` 工具、event-types、通知管線、持久化)。

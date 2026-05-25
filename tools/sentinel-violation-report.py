@@ -28,6 +28,8 @@ WORKSPACE_ROOT = Path(os.environ.get("SENTINEL_WORKSPACE", os.path.expanduser("~
 REPORT_DIR = WORKSPACE_ROOT / "event_data" / "reports"
 QUERY_MODULE_PATH = WORKSPACE_ROOT / ".openclaw" / "bin" / "sentinel-event-query.py"
 
+_SQLITE = os.environ.get("NEMOCLAW_DB_BACKEND", "mongo").strip().lower() == "sqlite"
+
 
 def load_query_module():
     spec = importlib.util.spec_from_file_location("sentinel_event_query_module", QUERY_MODULE_PATH)
@@ -39,7 +41,13 @@ def load_query_module():
     return module
 
 
-QUERY = load_query_module()
+# sqlite 後端:用輕量 event_query_sqlite 當 QUERY(不載入 bson / FPG mongo 模組)。
+# mongo 後端:延遲載入部署的 query module(沿用舊行為)。
+if _SQLITE:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "nemoclaw"))
+    import event_query_sqlite as QUERY
+else:
+    QUERY = load_query_module()
 
 
 def emit(payload: dict[str, Any], code: int = 0) -> None:
@@ -358,15 +366,22 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    query, info = QUERY.build_filter(args)
-    if not args.all_events:
-        violation_clause = {"$or": [{"Event_type_id": {"$ne": 3}}, {"metadata.has_violation": True}]}
-        query = merge_with_and(query, violation_clause)
-        info["violations_only"] = True
-
     limit = max(1, min(int(args.limit), 200))
-    docs = list(QUERY.event_db.collection.find(query, QUERY.projection()).sort("Event_time", -1).limit(limit))
-    events = [QUERY.attach_media_delivery(QUERY.enrich_event(doc)) for doc in docs]
+
+    if _SQLITE:
+        rows, info = QUERY.filter_events(args)
+        if not args.all_events:
+            rows = QUERY.filter_violations_only(rows)
+            info["violations_only"] = True
+        events = [QUERY.attach_media_delivery(QUERY.enrich_event(r)) for r in rows[:limit]]
+    else:
+        query, info = QUERY.build_filter(args)
+        if not args.all_events:
+            violation_clause = {"$or": [{"Event_type_id": {"$ne": 3}}, {"metadata.has_violation": True}]}
+            query = merge_with_and(query, violation_clause)
+            info["violations_only"] = True
+        docs = list(QUERY.event_db.collection.find(query, QUERY.projection()).sort("Event_time", -1).limit(limit))
+        events = [QUERY.attach_media_delivery(QUERY.enrich_event(doc)) for doc in docs]
 
     now_str = datetime.now(QUERY.LOCAL_TZ).strftime("%Y%m%d_%H%M%S")
     output_path = Path(args.output).expanduser() if args.output else REPORT_DIR / f"{safe_slug(args.title)}_{now_str}.pdf"

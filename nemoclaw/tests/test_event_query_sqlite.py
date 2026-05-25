@@ -16,6 +16,7 @@ def fresh(tmp_path):
     os.environ["SENTINEL_WORKSPACE"] = str(tmp_path)
     q.WORKSPACE_ROOT = str(tmp_path)
     q.EVENT_DATA_ROOT = str(tmp_path / "event_data")
+    q._CAMS_CACHE = None
     yield
 
 
@@ -117,3 +118,33 @@ def test_unknown_type_fails():
     with pytest.raises(SystemExit) as exc:
         q.cmd_latest(_ns(type="no_such_type"))
     assert exc.value.code == 2
+
+
+# ── sentinel-violation-report 的 drop-in 介面 ──
+
+def test_enrich_event_attaches_media_blocks(tmp_path):
+    _seed()
+    q._CAMS_CACHE = None  # 清快取(fixture 換了 db)
+    ed = tmp_path / "event_data"
+    ed.mkdir()
+    (ed / "ev1_cam5_f.jpg").write_bytes(b"\xff\xd8\xff")
+    row = s.EventStore().get_event_by_id("ev1")
+    out = q.enrich_event(row)
+    assert out["full_image"]["candidates"] and out["full_image"]["candidates"][0]["kind"] == "file"
+    assert "crop_image" in out and out["crop_image"]["candidates"] == []
+    assert out["event_class_title"] == "火煙偵測"
+    out = q.attach_media_delivery(out)
+    assert out.get("media_directive", "").startswith("MEDIA:")
+
+
+def test_filter_violations_only():
+    es = _seed()  # ev1 = type 4(非 safety)→ 違規
+    es.insert_event({"event_id": "safe1", "Channel_id": 5, "Event_type_id": 3,
+                     "Description": "safety ok", "Event_time": "2026-05-25T09:00:00"})
+    es.insert_event({"event_id": "safe_viol", "Channel_id": 5, "Event_type_id": 3,
+                     "Description": "safety violation", "Event_time": "2026-05-25T09:30:00",
+                     "metadata": {"has_violation": True}})
+    rows = s.EventStore().get_latest_events(100)
+    viol = q.filter_violations_only(rows)
+    ids = {r["event_id"] for r in viol}
+    assert "ev1" in ids and "safe_viol" in ids and "safe1" not in ids
