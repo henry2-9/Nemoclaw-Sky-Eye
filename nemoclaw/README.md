@@ -74,7 +74,7 @@ curl -fsSL https://www.nvidia.com/nemoclaw.sh | bash   # 需 sudo(Docker/CDI)
 
 宣告於 `policy.yaml`,由 `nemoclaw-act`(agent 唯一對外出口)強制:
 
-1. **動作閘門/分級** — 信心 <0.7 BLOCK;同事件 5 分內 DEDUP;severity 路由(low→log、high→+escalate、critical→+report);動作 allowlist。
+1. **動作閘門/分級** — 信心 <0.7 BLOCK;同事件 5 分內 DEDUP;severity 路由(可設定;**目前所有嚴重度都通知**,high→+escalate、critical→+report);動作 allowlist。
 2. **隱私/PII** — 外發影像前自動模糊人臉;原始影像不離開 GB10。
 3. **接地/防注入** — 無證據引用 → ABSTAIN;畫面/字幕文字一律當「被觀察證據」,即使寫「忽略所有警報」也不照做,並標記 `injection_detected`。
    另有視覺安全下限:高信心火災/濃煙不能只因畫面文字寫「系統測試」就被 triage 降級。
@@ -118,6 +118,48 @@ nemoclaw/nemoclaw-flight-recorder --latest 3
 
 ---
 
+## 攝影機來源(可切換)
+
+`NEMOCLAW_CHANNELS_FILE` 決定監看哪批攝影機:
+
+| 來源 | 設定檔 | 內容 |
+|---|---|---|
+| 本地 16 路(預設) | `channels.yaml` | 4 類危害各 4 部影片,當模擬攝影機 |
+| 世界公開攝影機 | `world_channels.yaml` | 台灣國道公開 CCTV(live MJPEG);每輪每路抓 1 幀即關,**不連續解碼** |
+
+```bash
+# 切換到世界公開攝影機
+export NEMOCLAW_CHANNELS_FILE=$NEMOCLAW_DIR/world_channels.yaml
+export NEMOCLAW_MAX_PER_CYCLE=2          # live 較慢,每輪少查幾路
+python3 nemoclaw/register_channels.py    # url channel 直接插入,不需本地檔
+```
+
+新增攝影機:在 `world_channels.yaml` 加一筆 `url`(任何 ffmpeg 可讀的 rtsp / http(s) / HLS 串流)。
+`feed.grab_frame` 與 `sentinel-analyze-video` 會把 URL 視為 live 串流,抓當前幀即關閉連線。
+
+## 通知策略
+
+`policy.yaml` 的 `severity_routing` 決定哪些嚴重度推 Telegram。**目前預設:所有嚴重度(含 low)都通知**——每個確認事件都推,由 `dedup_window_seconds`(5 分)防同一事件洗版,`quiet_hours.allow_severity` 設為全部(24/7 通知)。
+要改回「只有 medium 以上才通知」,把 `low.actions` 拿掉 `notify` 即可。
+
+## 常駐部署(systemd)
+
+```bash
+sudo cp nemoclaw/nemoclaw-sentinel.service /etc/systemd/system/   # 範本(自行填 User/路徑)
+sudo systemctl daemon-reload && sudo systemctl enable --now nemoclaw-sentinel
+sudo systemctl status nemoclaw-sentinel        # 狀態
+sudo journalctl -u nemoclaw-sentinel -f        # 即時記錄
+```
+用 `Environment=` 設定來源與間隔(例:世界攝影機、每 3 分鐘):
+```ini
+Environment=NEMOCLAW_CHANNELS_FILE=/path/Security-AI-Agent/nemoclaw/world_channels.yaml
+Environment=NEMOCLAW_INTERVAL=180        # 每輪之間隔秒數(預設 30)
+Environment=NEMOCLAW_MAX_PER_CYCLE=2
+```
+> 開機自啟 + 崩潰自重啟。注意:世界 live 攝影機一輪本身約數分鐘(MJPEG 抓幀慢),**實際週期 = 輪時間 + 間隔**。
+
+---
+
 ## Demo 腳本(決勝五步)
 
 1. 啟動後走開 ——「no human in the loop」,dashboard 自跑於單台 GB10。
@@ -134,8 +176,9 @@ nemoclaw/nemoclaw-flight-recorder --latest 3
 ```
 nemoclaw/
   nemoclaw.env          環境(venv PATH、Nemotron endpoint、Telegram from hermes .env)
-  channels.yaml         16 路 channel ↔ 影片 ↔ event_type
-  register_channels.py  登錄為 file channel(避開既有 RTSP 攝影機 id 1/17)
+  channels.yaml         本地 16 路 channel ↔ 影片 ↔ event_type
+  world_channels.yaml   世界公開攝影機(台灣國道 CCTV live URL)
+  register_channels.py  登錄 channel(file 走 add_file_channel;url 直接插入 stream)
   feed.py               playhead 模擬 live
   falcon_client.py      Falcon /infer 客戶端
   media.py              事件錄影切片 + Falcon 標記圖 artifact
@@ -145,6 +188,7 @@ nemoclaw/
                         事件飛行紀錄(sweep→Nemotron→NemoClaw→policy)
   nemoclaw-cycle        一次自主週期 CLI
   nemoclaw-supervisor.sh  long-running 監督迴圈(watchdog)
+  nemoclaw-sentinel.service  systemd 常駐服務範本(開機自啟/崩潰自重啟)
   policy.py / policy.yaml     4 類護欄決策
   act.py / nemoclaw-act       政策閘(唯一對外出口,稽核)
   redact.py             PII 人臉馬賽克
@@ -154,7 +198,7 @@ nemoclaw/
   dashboard/app.py      治理稽核 dashboard(:8099)
   demo_injection.sh     防注入 demo 素材(ch19)
   demo_attack_scene.sh  決勝攻擊場景:preflight + ch19 + flight recorder
-  tests/                35 個單元測試(政策閘/防注入/編排/redact/...)
+  tests/                50 個單元測試(政策閘/防注入/編排/triage/redact/...)
 ```
 
 ## 技術棧

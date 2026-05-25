@@ -49,6 +49,14 @@ nohup bash nemoclaw/nemoclaw-supervisor.sh &   # 啟動自主巡檢(no human in 
 python3 nemoclaw/dashboard/app.py              # 治理稽核 dashboard → http://localhost:8099
 ```
 
+**攝影機來源可切換**:預設本地 16 路影片;要監看**世界公開攝影機**(台灣國道 live CCTV)：
+```bash
+export NEMOCLAW_CHANNELS_FILE=$NEMOCLAW_DIR/world_channels.yaml NEMOCLAW_MAX_PER_CYCLE=2
+python3 nemoclaw/register_channels.py
+```
+**常駐**:`sudo systemctl enable --now nemoclaw-sentinel`(systemd 開機自啟,間隔/來源用 `Environment=` 設定)。
+**通知**:預設所有嚴重度的確認事件都推 Telegram(去重防洗版)。
+
 **前置**:Nemotron vLLM(:31010)、NVIDIA NemoClaw / OpenShell(Hermes :8642)、Falcon Perception(:18793)、MongoDB(:27017)。NemoClaw 安裝步驟見 [`nemoclaw/README.md`](nemoclaw/README.md)。
 
 **Demo**:`bash nemoclaw/demo_attack_scene.sh`(防注入決勝)· `nemoclaw/nemoclaw-flight-recorder --latest 3`
