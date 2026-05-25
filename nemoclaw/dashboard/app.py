@@ -384,6 +384,50 @@ def _render_command_center(rows, health=None):
 </section>"""
 
 
+def _latest_media_row(rows):
+    for r in reversed(rows):
+        urls = (r.get("media_artifacts") or {}).get("urls") or {}
+        if urls.get("clip") or urls.get("falcon_annotated") or urls.get("frame"):
+            return r
+    return None
+
+
+def _render_current_incident(rows):
+    """首頁直接秀最新事件的錄影切片 + Falcon 標記圖 + 自主處置標記。"""
+    r = _latest_media_row(rows)
+    if not r:
+        return ""
+    urls = (r.get("media_artifacts") or {}).get("urls") or {}
+    clip = urls.get("clip") or ""
+    annot = urls.get("falcon_annotated") or urls.get("frame") or ""
+    sev = str(r.get("severity", "")).upper()
+    sevcls = {"CRITICAL": "b-block", "HIGH": "b-block",
+              "MEDIUM": "b-abstain", "LOW": "b-dedup"}.get(sev, "b-dedup")
+    marks = []
+    if r.get("escalated"):
+        marks.append("<span class='badge b-block'>🔴 二級升級</span>")
+    if r.get("report_path"):
+        marks.append("<span class='badge b-gov'>📄 已產報告</span>")
+    if r.get("injection_detected"):
+        marks.append("<span class='badge b-inj'>⚠ 注入已擋</span>")
+    gov = "🛡 NemoClaw" if r.get("governed_by") == "nemoclaw-openshell" else str(r.get("governed_by") or "")
+    q = urllib.parse.urlencode({"trace_id": r.get("trace_id", "")})
+    video_html = (f"<video controls autoplay muted loop playsinline preload='metadata' "
+                  f"src='{html.escape(clip)}'></video>" if clip else "<div class=empty>無錄影切片</div>")
+    img_html = (f"<a href='{html.escape(annot)}'><img src='{html.escape(annot)}' alt='Falcon 標記圖'></a>"
+                if annot else "<div class=empty>無標記圖</div>")
+    return f"""<section class='panel glass'>
+  <h3>🎥 最新事件 · 自主處置 <span class='badge {sevcls}'>{sev or '—'}</span>
+    <span class=muted style='font-weight:400'>{html.escape(str(r.get('channel','')))} · {html.escape(str(r.get('event_type','')))}</span>
+    {' '.join(marks)}</h3>
+  <div class=media-grid>
+    <div><h4>錄影切片(已馬賽克)</h4>{video_html}</div>
+    <div><h4>Falcon 標記圖</h4>{img_html}</div>
+  </div>
+  <p class=muted>{html.escape(str(r.get('summary',''))[:160] or '—')} · 治理:{html.escape(gov or '—')} · <a href='/trace?{q}'>展開飛行紀錄</a></p>
+</section>"""
+
+
 def _render_attack_matrix():
     """安全挑戰矩陣面板:多模態 prompt-injection 防禦結果(讀 attack_matrix.json)。"""
     if not os.path.exists(ATTACK_MATRIX):
@@ -520,6 +564,7 @@ class H(BaseHTTPRequestHandler):
         m = _efficiency_metrics()
         health = _health_now()
         command_center = _render_command_center(rows, health)
+        current_incident = _render_current_incident(rows)
         status_html = (_health_dots(health)
                        + "<span class=muted>7×24 · 零人工 · 每 5s 自動刷新</span>")
         dist = " ".join(
@@ -555,6 +600,7 @@ class H(BaseHTTPRequestHandler):
   <div class=status>{status_html}</div>
 </header>
 {command_center}
+{current_incident}
 <div class=tiles>{tiles}</div>
 <section class='panel glass'><h3>⚡ 級聯效率 <span class=muted style='font-size:11px;font-weight:400'>便宜感知連續掃,只有出事才喚醒 Nemotron</span></h3>
 <div class=stats>{eff}</div></section>
