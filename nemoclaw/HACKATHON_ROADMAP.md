@@ -151,7 +151,9 @@ README 宣稱 audit 可寫入 JSONL 與 MongoDB；送件前必須確保這項 pe
 
 ## P2：有餘裕再做
 
-### 6. Attack Challenge Matrix
+### 6. Attack Challenge Matrix ✅ 已完成(2026-05-25)
+
+> 實作:`attack_matrix.py` + `nemoclaw-attack-matrix` CLI + dashboard 「安全挑戰矩陣」面板 + 6 單元測試。5 種注入管道 **5/5 全數防禦**,跑在真實 `policy.evaluate` + `orchestrator._triage_severity` 上。
 
 將單一 OCR prompt-injection 場景擴充為安全測試矩陣：
 
