@@ -45,6 +45,42 @@ def _notified(row):
         return bool(row.get("notification_sent"))
     return row.get("decision") == "ALLOW" and "notify" in (row.get("actions") or [])
 
+def _efficiency_metrics():
+    """級聯效率:從 supervisor.log 聚合掃描/喚醒/確認;從 flight_recorder 算調查延遲。"""
+    import statistics
+    log = os.path.join(os.environ.get("NEMOCLAW_DIR", os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "supervisor.log")
+    cycles = cand = inv = inc = 0
+    if os.path.exists(log):
+        for line in open(log, encoding="utf-8"):
+            i = line.find("{")
+            if i < 0:
+                continue
+            try:
+                d = json.loads(line[i:])
+            except Exception:
+                continue
+            if "candidates" not in d:
+                continue
+            cycles += 1
+            cand += int(d.get("candidates", 0)); inv += int(d.get("investigated", 0)); inc += int(d.get("incidents", 0))
+    lat = []
+    try:
+        by = flight_recorder.group_by_trace(flight_recorder.load())
+        for stages in by.values():
+            ts = {st.get("stage"): st.get("ts") for st in stages if st.get("ts")}
+            if "nemotron_question" in ts and "policy_decision" in ts:
+                dt = ts["policy_decision"] - ts["nemotron_question"]
+                if 0 < dt < 600:
+                    lat.append(dt)
+    except Exception:
+        pass
+    med = round(statistics.median(lat), 1) if lat else 0.0
+    p95 = round(sorted(lat)[max(0, int(len(lat) * 0.95) - 1)], 1) if len(lat) >= 2 else med
+    return {"cycles": cycles, "candidates": cand, "investigations": inv, "confirmed": inc,
+            "filtered": max(0, inv - inc), "capped": max(0, cand - inv),
+            "median_latency": med, "p95_latency": p95}
+
+
 COLOR = {"ALLOW": "#0a7", "BLOCK": "#c33", "DEDUP": "#888", "ABSTAIN": "#e90"}
 
 def _trace_link(trace_id):
@@ -161,6 +197,11 @@ class H(BaseHTTPRequestHandler):
                  f"📣 實際送出 {notified} &nbsp;|&nbsp; ⚠️ 注入阻擋 {inj} &nbsp;|&nbsp; "
                  f"<span style='color:#6cf'>🛡️ NemoClaw 治理 {gov}</span> &nbsp;|&nbsp; "
                  f"🧾 Flight Recorder {flight_count}")
+        m = _efficiency_metrics()
+        eff = (f"🔁 cycles {m['cycles']} &nbsp;|&nbsp; 👁️ cheap候選 {m['candidates']} &nbsp;|&nbsp; "
+               f"<span style='color:#6cf'>🧠 Nemotron 喚醒 {m['investigations']}</span> &nbsp; "
+               f"✅ 確認 {m['confirmed']} &nbsp; 🚫 過濾正常 {m['filtered']} &nbsp; ⏭️ cheap擋下未送 {m['capped']} "
+               f"&nbsp;|&nbsp; ⏱️ 調查延遲 中位 {m['median_latency']}s / p95 {m['p95_latency']}s")
         items = "".join(
             f"<tr><td>{r.get('ts_iso','')}</td><td>{r.get('channel','')}</td>"
             f"<td>{r.get('event_type','')}</td>"
@@ -181,6 +222,7 @@ th,td{{border:1px solid #243;padding:6px 8px;text-align:left}} th{{background:#1
 </style></head><body>
 <h2>🛡️ NemoClaw Sentinel — 自主巡檢治理稽核</h2>
 <div class=bar>{cards}</div>
+<div class=bar style="font-size:14px;color:#9bd">⚡ 級聯效率:{eff}</div>
 <table><tr><th>時間</th><th>Ch</th><th>類型</th><th>決策</th><th>治理</th><th>注入</th><th>動作</th><th>Flight</th><th>媒體</th><th>理由</th></tr>
 {items}</table></body></html>"""
         self._send_html(html)
