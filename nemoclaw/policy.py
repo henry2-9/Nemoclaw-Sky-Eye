@@ -61,5 +61,17 @@ def evaluate(incident, policy, recent, now=None):
         actions, channels = ["log"], []
         reasons.append("quiet hours → log only")
 
+    # ④ rate limit(高上限保險;critical 永遠穿透,超量非 critical → RATE_LIMITED 只記 log)
+    rl = rs.get("max_notifications_per_hour")
+    if rl and "notify" in actions and incident.get("severity") != "critical":
+        recent_notifs = sum(1 for r in recent
+                            if "notify" in (r.get("actions") or [])
+                            and (now.timestamp() - r.get("ts", 0)) <= 3600)
+        if recent_notifs >= int(rl):
+            actions = [a for a in actions if a == "log"] or ["log"]
+            channels = []
+            reasons.append(f"RATE_LIMITED: >{rl} notifications/hr (non-critical)")
+            hits.append("rate_limited")
+
     out.update(actions=actions, channels=channels, reasons=reasons)
     return out

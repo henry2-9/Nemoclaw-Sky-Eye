@@ -64,5 +64,17 @@ def test_quiet_hours_critical_passes():
     d = policy.evaluate(inc(severity="critical"), POL, recent=[], now=_night())
     assert "notify" in d["actions"]
 
+# ④ rate limit:超量非 critical → 不發(RATE_LIMITED)
+def test_rate_limit_blocks_noncritical_over_cap():
+    recent = [{"actions": ["log", "notify"], "ts": _noon().timestamp() - 10} for _ in range(30)]
+    d = policy.evaluate(inc(severity="high"), POL, recent=recent, now=_noon())
+    assert "notify" not in d["actions"]
+    assert any("RATE_LIMITED" in r for r in d["reasons"])
+
+def test_rate_limit_critical_bypasses():
+    recent = [{"actions": ["log", "notify"], "ts": _noon().timestamp() - 10} for _ in range(30)]
+    d = policy.evaluate(inc(severity="critical"), POL, recent=recent, now=_noon())
+    assert "notify" in d["actions"]
+
 def _noon():  return datetime.datetime(2026,5,24,12,0,0)
 def _night(): return datetime.datetime(2026,5,24,2,0,0)
