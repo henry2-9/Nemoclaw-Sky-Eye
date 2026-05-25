@@ -105,10 +105,28 @@ def extract_frame(video_path, out_path, second=None):
     return out_path if os.path.exists(out_path) and os.path.getsize(out_path) > 0 else None
 
 
+STREAM_PREFIXES = ("rtsp://", "http://", "https://")
+
+def is_stream(path):
+    return str(path or "").lower().startswith(STREAM_PREFIXES)
+
+
 def create_clip(video_path, out_path, center_sec=None, pre_roll=None, duration=None):
+    duration = float(duration or os.environ.get("NEMOCLAW_CLIP_SECONDS", "8"))
+    if is_stream(video_path):
+        # live 串流無法回放:從事件當下往後錄製 forward clip(post-event)。
+        cmd = [
+            "ffmpeg", "-y", "-loglevel", "error", "-i", video_path,
+            "-t", f"{duration:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+            "-an", "-movflags", "+faststart", out_path,
+        ]
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=duration + 60)
+        except Exception:
+            return None
+        return out_path if os.path.exists(out_path) and os.path.getsize(out_path) > 0 else None
     if not video_path or not os.path.exists(video_path):
         return None
-    duration = float(duration or os.environ.get("NEMOCLAW_CLIP_SECONDS", "8"))
     pre_roll = float(pre_roll or os.environ.get("NEMOCLAW_CLIP_PREROLL", "3"))
     center_sec = float(center_sec) if center_sec is not None else (_probe_duration(video_path) * 0.5)
     start = max(0.0, center_sec - pre_roll)
@@ -159,12 +177,26 @@ def prepare_event_media(incident):
     source_video = incident.get("source_video_path") or incident.get("video_path") or ""
     playhead = incident.get("playhead_sec")
     frame_src = (incident.get("media_refs") or [None])[0]
+    live = is_stream(source_video)
+    clip_status = "ok"
 
-    frame_path = _copy(frame_src, out_dir / "frame.jpg")
-    if not frame_path and source_video:
-        frame_path = extract_frame(source_video, str(out_dir / "frame.jpg"), playhead)
-
-    clip_path = create_clip(source_video, str(out_dir / "clip.mp4"), playhead) if source_video else None
+    if live:
+        # live URL:往後錄製 forward clip,再從 clip 抽代表幀(與影片一致)
+        clip_path = create_clip(source_video, str(out_dir / "clip.mp4"))
+        frame_path = extract_frame(clip_path, str(out_dir / "frame.jpg")) if clip_path else None
+        if not frame_path:                      # clip/抽幀失敗 → 退回 sweep 當下那張幀
+            frame_path = _copy(frame_src, out_dir / "frame.jpg")
+        if not clip_path:
+            clip_status = "stream_unavailable"
+    else:
+        frame_path = _copy(frame_src, out_dir / "frame.jpg")
+        if not frame_path and source_video:
+            frame_path = extract_frame(source_video, str(out_dir / "frame.jpg"), playhead)
+        clip_path = create_clip(source_video, str(out_dir / "clip.mp4"), playhead) if source_video else None
+        if not source_video:
+            clip_status = "no_source"
+        elif not clip_path:
+            clip_status = "clip_failed"
     ann = annotate_frame(
         frame_path,
         str(out_dir / "falcon_annotated.jpg"),
@@ -175,6 +207,8 @@ def prepare_event_media(incident):
     manifest = {
         "trace_id": safe_trace_id(trace_id),
         "source_video_path": source_video,
+        "is_live": live,
+        "clip_status": clip_status,
         "playhead_sec": playhead,
         "frame_path": frame_path,
         "clip_path": clip_path,
