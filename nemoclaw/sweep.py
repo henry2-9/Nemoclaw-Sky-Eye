@@ -9,6 +9,8 @@ RULES = {
     "intrusion":       ("person",             ["person"],         1),
     "abnormal_crowd":  ("person",             ["person"],         3),
     "abnormal_weather":("flood, smoke, fire, fallen tree", ["flood","fallen tree","smoke","fire"], 1),
+    # 世界公開交通攝影機(國道 CCTV 等):偵測車輛/人,有就當候選
+    "traffic":         ("car, person, truck, motorcycle", ["car","person","truck","motorcycle"], 1),
 }
 
 def _hit(counts, keys, threshold):

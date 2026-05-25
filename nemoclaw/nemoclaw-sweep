@@ -4,8 +4,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import register_channels, sweep
 
 def main():
-    chans = register_channels.load_channels(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "channels.yaml"))
+    chans = register_channels.load_channels(register_channels.channels_file())
     print(sweep.format_output(sweep.sweep_channels(chans)))
 
 if __name__ == "__main__":

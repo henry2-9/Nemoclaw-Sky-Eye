@@ -102,8 +102,29 @@ def extract_one_frame(source: str, second: float) -> str | None:
 
 
 def extract_frames(source: str, fps: float = 1.0, max_frames: int = 120):
-    """從影片依 fps 抽幀，回傳 (base64_list, duration)"""
-    duration, _ = get_video_info(source)
+    """從影片依 fps 抽幀，回傳 (base64_list, duration)。
+    live 串流(rtsp/http(s),無 duration)→ 一次 ffmpeg 抓當前數幀(省連線、不連續解碼)。"""
+    is_stream = source.lower().startswith(("rtsp://", "http://", "https://"))
+    try:
+        duration, _ = get_video_info(source)
+    except Exception:
+        duration = 0.0
+    if is_stream or duration <= 0:
+        n = min(max_frames, 4)
+        tmpl = "/tmp/sentinel_live_%03d.jpg"
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", source, "-vf", "fps=1",
+             "-frames:v", str(n), "-q:v", "3", tmpl],
+            capture_output=True, timeout=60
+        )
+        frames = []
+        for i in range(1, n + 1):
+            p = tmpl % i
+            if os.path.exists(p):
+                with open(p, "rb") as f:
+                    frames.append(base64.b64encode(f.read()).decode())
+                os.remove(p)
+        return frames, 0.0
     total = min(math.ceil(duration * fps), max_frames)
     frames = []
     for i in range(total):
@@ -195,8 +216,8 @@ def main():
 
     source_url, channel_id = match
 
-    is_rtsp = source_url.lower().startswith("rtsp://")
-    if not is_rtsp and not os.path.exists(source_url):
+    is_stream = source_url.lower().startswith(("rtsp://", "http://", "https://"))
+    if not is_stream and not os.path.exists(source_url):
         print(json.dumps({"ok": False, "error": f"影片檔案不存在: {source_url}"}, ensure_ascii=False))
         sys.exit(1)
 
