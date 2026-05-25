@@ -201,10 +201,14 @@ nemoclaw/
   eval.py               決策統計 / exactly-once 驗證
   dashboard/app.py      治理稽核 dashboard(:8099)
   attack_matrix.py / nemoclaw-attack-matrix  安全挑戰矩陣(5 種注入管道 5/5 防禦)
+  report.py             自主事件報告(escalate/report 動作 → 自動產單一事件報告)
+  watchdog.py           自我維生:Nemotron/Falcon/NemoClaw 健康自檢/降級/復原
+  briefing.py / nemoclaw-briefing  自主情勢簡報(agent 排程,非人問)
+  dashboard/app.py      指揮中心(0 人工證明 + 威脅等級 + 服務健康 + 級聯 + 簡報)
   demo_injection.sh     防注入 demo 素材(ch19)
   demo_attack_scene.sh  決勝攻擊場景:preflight + ch19 + flight recorder
   demo_prep.sh          錄製前一鍵環境備妥(服務/頻道/矩陣/清單)
-  tests/                73 個單元測試(政策閘/防注入/攻擊矩陣/編排/triage/redact/sqlite/...)
+  tests/                86 個單元測試(政策閘/防注入/攻擊矩陣/編排/自主調查/處置/watchdog/簡報/sqlite/...)
 ```
 
 ## 技術棧

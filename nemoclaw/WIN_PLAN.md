@@ -109,15 +109,15 @@
 - **全程約束**:除 P0-3 外皆為加法、不動核心級聯/政策;每步保 **73+ 測試綠** 且 `demo_attack_scene.sh` 可過;新增 Nemotron 呼叫限併發、抓幀僅週期快取。
 
 ## 8. 送件前 Checklist
-- [ ] P0-1 自主分級處置 +(無人核准)自動事件報告
-- [ ] P0-2 自主運行監控首頁 +「人工介入 0 次」證明面板
-- [ ] P0-3 自主調查(時間不足則棄守,於本檔註記)
-- [ ] P1 自我維生 watchdog(服務自檢/降級/復原,監控頁可見)
-- [ ] P1 自主情勢簡報(agent 按自己排程產出,非人問)
-- [ ] 測試全綠(73+)且 `demo_attack_scene.sh` 連續可過
-- [ ] SUBMISSION.md / README.md 對齊「全自主、零人工」定位
-- [ ] 送件影片錄製完成(8 鏡頭,證明 0 人工)
-- [ ] 2026-05-28 11:00 前完成送件 + buffer
+- [x] P0-1 自主分級處置 +(無人核准)自動事件報告 — `report.py` + `act.py`(escalate/report)
+- [x] P0-2 自主運行監控首頁 +「人工介入 0 次」證明面板 — dashboard command center
+- [x] P0-3 自主調查 — `orchestrator._maybe_reinvestigate`(信心 0.5–0.7 自主再查)
+- [x] P1 自我維生 watchdog — `watchdog.py`(服務自檢/降級/復原 + 監控頁健康燈)
+- [x] P1 自主情勢簡報 — `briefing.py` + `nemoclaw-briefing`(agent 排程,非人問)
+- [x] 測試全綠(**86**)且 `demo_attack_scene.sh` 連續可過
+- [x] SUBMISSION.md / README.md 對齊「全自主、零人工」定位
+- [ ] 送件影片錄製完成(8 鏡頭,證明 0 人工)← **僅你能做**
+- [ ] 2026-05-28 11:00 前完成送件 + buffer ← **僅你能做**
 
 ## 9. 立即下一步(待拍板)
 1. 核准本(自主版)藍圖 → 我從 **P0-1(自主分級處置 + 自動報告)** 開工(brainstorm→spec→plan→實作)。
