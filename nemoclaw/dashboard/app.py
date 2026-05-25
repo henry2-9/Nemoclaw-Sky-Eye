@@ -201,6 +201,11 @@ th,td{{border:1px solid #243;padding:6px 8px;text-align:left}} th{{background:#1
         except Exception:
             self.send_error(404)
             return
+        # P0.2 隱私:對外只送 redacted artifact,原始素材一律拒絕(不離開本機)
+        PUBLIC_MEDIA = {"redacted_clip.mp4", "frame_redacted.jpg", "falcon_annotated_redacted.jpg"}
+        if target.name not in PUBLIC_MEDIA:
+            self.send_error(403, "raw artifact not public")
+            return
         size = target.stat().st_size
         start, end = 0, size - 1
         range_header = self.headers.get("Range", "")

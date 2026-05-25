@@ -51,15 +51,17 @@ def run(incident, policy_path=None, recent=None, audit_path=None, now=None):
         if os.environ.get("NEMOCLAW_NOTIFY_DISABLED", "0") == "1":
             decision["reasons"].append("notify disabled by NEMOCLAW_NOTIFY_DISABLED")
         else:
-            photo = None
-            refs = incident.get("media_refs") or []
             artifacts = decision.get("media_artifacts") or {}
-            photo_source = artifacts.get("falcon_annotated_path") or (refs[0] if refs else None)
-            if photo_source and not pol["privacy"].get("raw_media_egress", False):
-                photo = redact.redact_pii(photo_source)      # ② 外發前馬賽克
+            photo = artifacts.get("notify_photo")            # media 已產生 redacted 圖
+            if photo:
                 decision["redacted"] = True
-            elif photo_source:
-                photo = photo_source
+            else:                                            # media 關閉 → 退回 sweep 幀並即時馬賽克
+                refs = incident.get("media_refs") or []
+                src = refs[0] if refs else None
+                if src and not pol["privacy"].get("raw_media_egress", False):
+                    photo = redact.redact_pii(src); decision["redacted"] = True
+                elif src:
+                    photo = src
             text = _notification_text(incident, decision)
             try:
                 notify.notify_from_env(text, photo_path=photo)

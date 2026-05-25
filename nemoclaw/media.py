@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 
 import falcon_client
+import redact
 
 
 EVENT_QUERY = {
@@ -204,24 +205,35 @@ def prepare_event_media(incident):
         query=incident.get("falcon_query"),
     ) if frame_path else {"ok": False, "error": "no frame for falcon annotation"}
 
+    # ── P0.2 隱私:對外只發 redacted 版本,原始素材僅留本機 ──────────────
+    raw_annot = ann.get("annotated_path")
+    red_frame = redact.redact_pii(frame_path, str(out_dir / "frame_redacted.jpg")) if frame_path else None
+    red_annot = redact.redact_pii(raw_annot, str(out_dir / "falcon_annotated_redacted.jpg")) if raw_annot else None
+    red_clip = redact.redact_video(clip_path, str(out_dir / "redacted_clip.mp4")) if clip_path else None
+    privacy_processed = bool((red_frame or not frame_path) and (red_clip or not clip_path))
+
     manifest = {
         "trace_id": safe_trace_id(trace_id),
         "source_video_path": source_video,
         "is_live": live,
         "clip_status": clip_status,
+        "privacy_processed": privacy_processed,
         "playhead_sec": playhead,
-        "frame_path": frame_path,
-        "clip_path": clip_path,
-        "falcon_annotated_path": ann.get("annotated_path"),
+        # 對外公開路徑 = redacted;原始僅本機(raw,不轉成 URL)
+        "frame_path": red_frame,
+        "clip_path": red_clip,
+        "falcon_annotated_path": red_annot,
+        "notify_photo": red_annot or red_frame,
+        "raw": {"frame": frame_path, "clip": clip_path, "falcon_annotated": raw_annot},
         "falcon_query": ann.get("query") or incident.get("falcon_query"),
         "falcon_counts": ann.get("counts", {}),
         "falcon_error": ann.get("error"),
     }
-    manifest["urls"] = {
+    manifest["urls"] = {                          # 只暴露 redacted artifact
         "trace": trace_url(trace_id, absolute=True),
-        "frame": media_url(frame_path, absolute=True) if frame_path else "",
-        "clip": media_url(clip_path, absolute=True) if clip_path else "",
-        "falcon_annotated": media_url(ann.get("annotated_path"), absolute=True) if ann.get("annotated_path") else "",
+        "frame": media_url(red_frame, absolute=True) if red_frame else "",
+        "clip": media_url(red_clip, absolute=True) if red_clip else "",
+        "falcon_annotated": media_url(red_annot, absolute=True) if red_annot else "",
     }
     with open(out_dir / "manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
