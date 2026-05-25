@@ -2,7 +2,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import orchestrator as orch
 
-def test_select_caps_and_prioritizes():
+def test_select_balances_across_types():
     cands = [
         {"channel": 9, "event_type": "abnormal_crowd"},
         {"channel": 1, "event_type": "fire_smoke"},
@@ -10,10 +10,13 @@ def test_select_caps_and_prioritizes():
         {"channel": 13, "event_type": "abnormal_weather"},
         {"channel": 2, "event_type": "fire_smoke"},
     ]
+    # 平衡調度:依優先序「輪流各取一個」,而非塞滿 fire
     sel = orch.select_candidates(cands, max_n=3)
-    assert len(sel) == 3
-    # fire_smoke 兩個優先,其次 intrusion
-    assert [c["event_type"] for c in sel] == ["fire_smoke", "fire_smoke", "intrusion"]
+    assert [c["event_type"] for c in sel] == ["fire_smoke", "intrusion", "abnormal_crowd"]
+    # max_n=4 → 四類各得一個名額(crowd/weather 不再被餓著)
+    sel4 = orch.select_candidates(cands, max_n=4)
+    assert sorted(c["event_type"] for c in sel4) == [
+        "abnormal_crowd", "abnormal_weather", "fire_smoke", "intrusion"]
 
 def test_select_excludes_recently_handled():
     cands = [

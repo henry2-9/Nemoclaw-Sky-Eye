@@ -21,10 +21,24 @@ def select_candidates(cands, max_n=4, exclude=None):
     """依事件優先序排序後取前 max_n,控制每輪 Nemotron 推理量。
     exclude:冷卻窗內已通知的 (channel, event_type) 集合,優先讓出名額給新鮮事件,
     使巡檢自然輪巡 16 路而非每輪只盯同幾台。"""
+    from collections import defaultdict
     exclude = exclude or set()
     fresh = [c for c in cands if (str(c.get("channel")), c.get("event_type")) not in exclude]
     pool = fresh if fresh else cands   # 全在冷卻中時退回原集合(仍會被政策閘 DEDUP)
-    return sorted(pool, key=lambda c: EVENT_PRIORITY.get(c.get("event_type"), 9))[:max_n]
+    # 平衡調度:依事件類型分組,以優先序「輪流各取一個」,確保四類危害雨露均霑,
+    # 不被 fire/intrusion 霸佔每輪名額(crowd/weather 不再被餓著)。
+    groups = defaultdict(list)
+    for c in pool:
+        groups[c.get("event_type")].append(c)
+    types = sorted(groups, key=lambda t: EVENT_PRIORITY.get(t, 9))
+    out = []
+    while len(out) < max_n and any(groups[t] for t in types):
+        for t in types:
+            if groups[t]:
+                out.append(groups[t].pop(0))
+                if len(out) >= max_n:
+                    break
+    return out
 
 def build_question(event_type):
     hazard = HAZARD.get(event_type, "異常狀況")
