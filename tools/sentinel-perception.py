@@ -68,8 +68,9 @@ def upload_image(path: str) -> str | None:
 def get_event_image(event_id: str) -> str | None:
     """Look up the representative image for an event by id, then by file scan."""
     try:
-        from database import EventDatabase
-        db = EventDatabase()
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "nemoclaw"))
+        import db_factory
+        db = db_factory.event_db()
         ev = db.get_event_by_id(event_id)
         if ev:
             for key in ("combined_image", "image_path", "clip_path"):
@@ -89,8 +90,9 @@ def get_event_image(event_id: str) -> str | None:
 def grab_frame_from_channel(channel_id: int) -> str | None:
     """Use ffmpeg to grab a single frame from the channel's RTSP/file source."""
     try:
-        from database import StreamSourceDatabase
-        db = StreamSourceDatabase()
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "nemoclaw"))
+        import db_factory
+        db = db_factory.channel_db()
         sources = db.get_stream_sources_with_channel_ids()
         match = next((url for url, cid in sources if cid == channel_id), None)
         if not match:

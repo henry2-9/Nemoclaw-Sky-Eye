@@ -2,6 +2,8 @@
 nemoclaw.env.local
 # runtime 產物,不入庫
 audit.jsonl
+sentinel.db
+sentinel.db-journal
 supervisor.log
 flight_recorder.jsonl
 media_events/

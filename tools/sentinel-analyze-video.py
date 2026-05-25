@@ -175,9 +175,13 @@ def ask_vlm(frames, question: str, max_tokens: int = 800) -> str:
 
 # ── 查詢 channel source_url ───────────────────────────────────────────────────
 
+def _channel_db():
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "nemoclaw"))
+    import db_factory
+    return db_factory.channel_db()
+
 def resolve_channel(channel_input: str):
-    from database import StreamSourceDatabase
-    db = StreamSourceDatabase()
+    db = _channel_db()
     if channel_input.strip().isdigit():
         sources = db.get_stream_sources_with_channel_ids()
         match = next(((url, cid) for url, cid in sources

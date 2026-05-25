@@ -421,8 +421,9 @@ def insert_event(type_id: int, class_id: int, description: str,
                  key_time: float = None, channel_id: int = 0) -> str:
     import shutil
     with redirect_stdout(sys.stderr):
-        from database.event_database import EventDatabase
-    db = EventDatabase()
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "nemoclaw"))
+        import db_factory
+    db = db_factory.event_db()
     video_ext = Path(video_path).suffix or ".mp4"
     result = db.insert_event({
         "Event_type_id": type_id,
@@ -675,8 +676,9 @@ def main():
     # 建立 video 路徑 → channel_id 對照表
     _path_to_ch: dict[str, int] = {}
     try:
-        from database import StreamSourceDatabase as _SSD
-        for _url, _cid in _SSD().get_stream_sources_with_channel_ids():
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "nemoclaw"))
+        import db_factory
+        for _url, _cid in db_factory.channel_db().get_stream_sources_with_channel_ids():
             _path_to_ch[str(Path(_url).resolve())] = _cid
     except Exception:
         pass

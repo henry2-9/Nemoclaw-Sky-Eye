@@ -178,7 +178,9 @@ nemoclaw/
   nemoclaw.env          環境(venv PATH、Nemotron endpoint、Telegram from hermes .env)
   channels.yaml         本地 16 路 channel ↔ 影片 ↔ event_type
   world_channels.yaml   世界公開攝影機(台灣國道 CCTV live URL)
-  register_channels.py  登錄 channel(file 走 add_file_channel;url 直接插入 stream)
+  register_channels.py  登錄 channel(file 走 add_file_channel;url 走 stream)
+  sqlite_store.py       SQLite 後端(channels + events,免 MongoDB)
+  db_factory.py         後端工廠(NEMOCLAW_DB_BACKEND=sqlite/mongo 切換)
   feed.py               playhead 模擬 live
   falcon_client.py      Falcon /infer 客戶端
   media.py              事件錄影切片 + Falcon 標記圖 artifact
@@ -203,8 +205,16 @@ nemoclaw/
 
 ## 技術棧
 
-Python 3 · vLLM(Nemotron-3-Nano-Omni-30B-NVFP4)· Falcon Perception · MongoDB ·
-ffmpeg · OpenCV · Telegram Bot API · DGX Spark GB10(aarch64, sm_121)。
+Python 3 · vLLM(Nemotron-3-Nano-Omni-30B-NVFP4)· Falcon Perception ·
+**SQLite(預設資料後端,免 server)** / MongoDB(選用)· ffmpeg · OpenCV · Telegram Bot API · DGX Spark GB10(aarch64, sm_121)。
+
+### 資料後端(SQLite / MongoDB 可切換)
+`NEMOCLAW_DB_BACKEND` 決定 channel/event 後端:
+- **`sqlite`(預設)** — nemoclaw 自帶 `sqlite_store.py`(channels + events),DB 檔在 `NEMOCLAW_SQLITE_PATH`(預設 `nemoclaw/sentinel.db`),**免 MongoDB server**,與 FPG 共用的 mongo 完全脫鉤。
+- **`mongo`** — 沿用 FPG 共用的 `database` 模組(MongoDB)。
+
+所有工具/`register_channels` 透過 `db_factory.py` 取得後端,切換不必改各處程式。
+> 註:`sentinel-event-query` 的進階查詢深度依賴 mongo 聚合,仍需 `mongo` 後端;nemoclaw 操作級聯(sweep→Nemotron→triage→gate)不使用它,在 sqlite 下完整運作。
 
 複用既有 Security-AI-Agent / Sentinel 約 80% 資產(5 個 `sentinel-*` 工具、event-types、通知管線、持久化)。
 ```

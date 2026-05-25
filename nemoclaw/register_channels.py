@@ -18,10 +18,14 @@ def load_channels(yaml_path):
     return out
 
 def _add_stream_channel(db, name, url, channel_id, location="NemoClaw Sentinel"):
-    """直接插入 live 串流 channel(URL),繞過 add_file_channel 的檔案存在檢查。"""
-    import datetime
+    """登錄 live 串流 channel(URL),繞過 add_file_channel 的檔案存在檢查。
+    SQLite 後端有 add_stream_channel;Mongo 後端則直接插入 collection。"""
     if db.get_channel_by_name(name):
         return
+    if hasattr(db, "add_stream_channel"):          # SQLite ChannelStore
+        db.add_stream_channel(name, url, channel_id, location)
+        return
+    import datetime                                 # Mongo StreamSourceDatabase
     db.collection.insert_one({
         "channel_id": channel_id, "channel_name": name,
         "source_type": "stream", "source_url": url, "location": location,
@@ -44,11 +48,12 @@ def channels_file():
                           os.path.join(os.path.dirname(__file__), "channels.yaml"))
 
 def main():
-    sys.path.insert(0, os.environ.get("SENTINEL_WORKSPACE", os.path.expanduser("~/sentinel-workspace")))
-    from database import StreamSourceDatabase
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import db_factory
     chans = load_channels(channels_file())
-    register(chans, StreamSourceDatabase())
-    print(f"registered/verified {len(chans)} channels from {channels_file()}")
+    register(chans, db_factory.channel_db())
+    print(f"registered/verified {len(chans)} channels from {channels_file()} "
+          f"[backend={db_factory.backend()}]")
 
 if __name__ == "__main__":
     main()
