@@ -6,12 +6,22 @@ import json
 import mimetypes
 import shutil
 import sys
+import time
+import datetime
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import flight_recorder
 import media
+try:
+    import watchdog as _watchdog
+except Exception:
+    _watchdog = None
+try:
+    import briefing as _briefing
+except Exception:
+    _briefing = None
 
 AUDIT = os.environ.get("NEMOCLAW_AUDIT_PATH",
                        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "audit.jsonl"))
@@ -144,6 +154,17 @@ h4{margin:6px 0}
 .kv{display:flex;gap:10px;margin:3px 0;line-height:1.5}
 .kv .k{color:#8b93b8;min-width:86px;flex-shrink:0;font-size:12px}
 .kv .v{color:#e2e6ff;word-break:break-word}
+.cc{padding:20px 24px}
+.cc-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.cc-proof{font-size:16px;color:#dfe3ff}
+.cc-proof .zero{color:#34d399;font-size:19px}
+.cc-threat{font-size:13px;color:#9aa3c7}
+.threat{display:inline-block;padding:3px 13px;border-radius:999px;font-weight:800;border:1px solid;font-size:14px}
+.cc-health{display:flex;gap:18px;margin-top:13px;font-size:13px;color:#c7cdf0;flex-wrap:wrap}
+.cascade{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.cascade .arrow{color:#5a6080;margin:0 1px}
+.brief{margin-top:13px;padding:11px 15px;border-radius:12px;background:rgba(124,92,255,.13);
+  border:1px solid rgba(124,92,255,.26);color:#e2e6ff;font-size:13px;line-height:1.55}
 """
 
 _BADGE_CLS = {"ALLOW": "b-allow", "BLOCK": "b-block", "DEDUP": "b-dedup", "ABSTAIN": "b-abstain"}
@@ -283,6 +304,86 @@ def _humanize_payload(payload):
     return "".join(rows) or "<span class=muted>—</span>"
 
 
+# ── P0-2 自主運行指揮中心 ──
+_NEMODIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_SEV_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+_THREAT = {0: ("低", "#34d399"), 1: ("中", "#fbbf24"), 2: ("高", "#fb923c"), 3: ("嚴重", "#f87171")}
+
+
+def _uptime_str():
+    log = os.path.join(_NEMODIR, "supervisor.log")
+    try:
+        with open(log, encoding="utf-8") as f:
+            for line in f:
+                if "supervisor start" in line:
+                    start = datetime.datetime.fromisoformat(line.split()[0])
+                    secs = (datetime.datetime.now(start.tzinfo) - start).total_seconds()
+                    return f"{int(secs // 3600)}h {int((secs % 3600) // 60)}m"
+    except Exception:
+        pass
+    return "—"
+
+
+def _threat(rows, now=None):
+    now = now if now is not None else time.time()
+    lvl = 0
+    for r in rows:
+        if r.get("decision") == "ALLOW" and (now - r.get("ts", 0)) <= 3600:
+            lvl = max(lvl, _SEV_RANK.get(r.get("severity"), 0))
+    return _THREAT[lvl]
+
+
+def _health_now():
+    if not _watchdog:
+        return {}
+    try:
+        return _watchdog.service_health()
+    except Exception:
+        return {}
+
+
+def _health_dots(health):
+    if not health:
+        return "<span class=muted>服務狀態未知</span>"
+    out = []
+    for k, label in (("nemotron", "Nemotron"), ("falcon", "Falcon"), ("nemoclaw", "NemoClaw")):
+        up = health.get(k) == "up"
+        out.append(f"<span><span class='dot{'' if up else ' off'}'></span>{label}</span>")
+    return "".join(out)
+
+
+def _cascade_html():
+    all_rows = flight_recorder.load()
+    latest = flight_recorder.latest_traces(all_rows, 1)
+    if not latest:
+        return ""
+    tid, recs = latest[0]
+    chips = "<span class=arrow>→</span>".join(_stage_chip(r.get("stage", "")) for r in recs)
+    q = urllib.parse.urlencode({"trace_id": tid})
+    return (f"<div class=muted style='margin:10px 0 6px'>最新事件級聯 · "
+            f"<a href='/trace?{q}'>{html.escape(tid.split('-')[-1])}</a></div>"
+            f"<div class=cascade>{chips}</div>")
+
+
+def _render_command_center(rows, health=None):
+    handled = sum(1 for r in rows if r.get("decision") == "ALLOW")
+    uptime = _uptime_str()
+    health = health if health is not None else _health_now()
+    tlabel, tcolor = _threat(rows)
+    cascade = _cascade_html()
+    brief = _briefing.read_latest() if _briefing else ""
+    brief_html = (f"<div class=brief>🗒 最新情勢簡報:{html.escape(brief)}</div>" if brief else "")
+    return f"""<section class='panel glass cc'>
+  <div class=cc-top>
+    <div class=cc-proof>🤖 <b>全自主運行</b> · 人工介入 <b class=zero>0</b> 次 · 已連續 <b>{uptime}</b> · 處理 <b>{handled}</b> 起</div>
+    <div class=cc-threat>威脅等級 <span class=threat style='color:{tcolor};border-color:{tcolor}66;background:{tcolor}1f'>{tlabel}</span></div>
+  </div>
+  <div class=cc-health>{_health_dots(health)}</div>
+  {cascade}
+  {brief_html}
+</section>"""
+
+
 def _render_attack_matrix():
     """安全挑戰矩陣面板:多模態 prompt-injection 防禦結果(讀 attack_matrix.json)。"""
     if not os.path.exists(ATTACK_MATRIX):
@@ -417,11 +518,10 @@ class H(BaseHTTPRequestHandler):
         s, notified, inj, gov = _stats(rows)
         flight_count = len(flight_recorder.group_by_trace(flight_recorder.load()))
         m = _efficiency_metrics()
-        status_html = (
-            "<span><span class=dot></span>Nemotron</span>"
-            "<span><span class=dot></span>Falcon</span>"
-            "<span><span class=dot></span>NemoClaw</span>"
-            "<span class=muted>7×24 · 零人工 · 每 5s 自動刷新</span>")
+        health = _health_now()
+        command_center = _render_command_center(rows, health)
+        status_html = (_health_dots(health)
+                       + "<span class=muted>7×24 · 零人工 · 每 5s 自動刷新</span>")
         dist = " ".join(
             f"<span class='badge {cls}'>{name} {s[name]}</span>"
             for name, cls in (("ALLOW", "b-allow"), ("BLOCK", "b-block"),
@@ -454,6 +554,7 @@ class H(BaseHTTPRequestHandler):
   <div class=sub>自主巡檢治理稽核 · Nemotron 看 · NemoClaw 守 · 單台 GB10</div></div>
   <div class=status>{status_html}</div>
 </header>
+{command_center}
 <div class=tiles>{tiles}</div>
 <section class='panel glass'><h3>⚡ 級聯效率 <span class=muted style='font-size:11px;font-weight:400'>便宜感知連續掃,只有出事才喚醒 Nemotron</span></h3>
 <div class=stats>{eff}</div></section>
