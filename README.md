@@ -5,7 +5,7 @@
 > NVIDIA Agent Hackathon 參賽作品。**Nemotron 負責看,NVIDIA NemoClaw 負責守。**
 > 16 路攝影機、四類危害、7×24 零人工介入 —— 不是概念 demo,是每個動作都受政策護欄治理、全程可稽核的 production agent。
 
-`Nemotron-3-Nano-Omni · NVIDIA NemoClaw / OpenShell · Falcon Perception · vLLM · MongoDB · GB10(aarch64)`
+`Nemotron-3-Nano-Omni · NVIDIA NemoClaw / OpenShell · Falcon Perception · vLLM · SQLite(預設)/ MongoDB(選用)· GB10(aarch64)`
 
 ---
 
@@ -29,7 +29,7 @@ Falcon sweep(便宜,連續) ──〔有候選〕──> Nemotron-Omni 多模態
 | **核心模型 = Nemotron** | 每事件多模態確認/分級皆由 `Nemotron-3-Nano-Omni-30B`(本機 vLLM :31010)推理 |
 | **autonomous / no human in loop** | supervisor 迴圈 7×24 自跑,無人觸發、無人確認 |
 | **long-running 架構** | cheap-sweep 連續、Nemotron 按需喚起、per-cycle watchdog、systemd 自啟 |
-| **real task / production-ready** | 真實工安事件全鏈處理、docker 部署、MongoDB 持久化、優雅降級 |
+| **real task / production-ready** | 真實工安事件全鏈處理、docker 部署、SQLite 持久化(免 DB server,可切 MongoDB)、優雅降級 |
 | **persistent deployment** | `restart: unless-stopped` + 稽核 jsonl + flight recorder |
 | **bonus:NemoClaw policy guardrails** | **裝了真正的 NVIDIA NemoClaw**(OpenShell + policy + intent verification),`governed_by=nemoclaw-openshell` |
 
@@ -57,7 +57,7 @@ python3 nemoclaw/register_channels.py
 **常駐**:`sudo systemctl enable --now nemoclaw-sentinel`(systemd 開機自啟,間隔/來源用 `Environment=` 設定)。
 **通知**:預設所有嚴重度的確認事件都推 Telegram(去重防洗版)。
 
-**前置**:Nemotron vLLM(:31010)、NVIDIA NemoClaw / OpenShell(Hermes :8642)、Falcon Perception(:18793)、MongoDB(:27017)。NemoClaw 安裝步驟見 [`nemoclaw/README.md`](nemoclaw/README.md)。
+**前置**:Nemotron vLLM(:31010)、NVIDIA NemoClaw / OpenShell(Hermes :8642)、Falcon Perception(:18793)。**資料後端預設 SQLite,免 DB server**(`NEMOCLAW_DB_BACKEND=mongo` 可切回 FPG 共用 MongoDB)。NemoClaw 安裝步驟見 [`nemoclaw/README.md`](nemoclaw/README.md)。
 
 **Demo**:`bash nemoclaw/demo_attack_scene.sh`(防注入決勝)· `nemoclaw/nemoclaw-flight-recorder --latest 3`
 
@@ -85,8 +85,10 @@ nemoclaw/
   redact.py / notify.py / audit.py        PII 馬賽克 / Telegram / 稽核
   dashboard/app.py                        治理稽核 dashboard(:8099)
   nemoclaw-supervisor.sh / *.service      long-running + systemd 部署
+  sqlite_store.py / db_factory.py         SQLite 後端 + 後端工廠(預設免 MongoDB)
+  event_query_sqlite.py                   sentinel-event-query / violation-report 的 sqlite 實作
   demo_attack_scene.sh / demo_injection.sh  防注入 demo
-  tests/                                  42 單元測試
+  tests/                                  67 單元測試
 ```
 
 ---
