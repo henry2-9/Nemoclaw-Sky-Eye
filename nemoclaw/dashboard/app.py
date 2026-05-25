@@ -141,6 +141,9 @@ video,img{width:100%;max-height:440px;background:rgba(0,0,0,.3);border:1px solid
   border-radius:12px;object-fit:contain}
 .empty{border:1px dashed rgba(255,255,255,.18);padding:32px;color:#8b93b8;border-radius:12px;text-align:center}
 h4{margin:6px 0}
+.kv{display:flex;gap:10px;margin:3px 0;line-height:1.5}
+.kv .k{color:#8b93b8;min-width:86px;flex-shrink:0;font-size:12px}
+.kv .v{color:#e2e6ff;word-break:break-word}
 """
 
 _BADGE_CLS = {"ALLOW": "b-allow", "BLOCK": "b-block", "DEDUP": "b-dedup", "ABSTAIN": "b-abstain"}
@@ -176,6 +179,108 @@ def _incident_row(r):
             f"<td>{_media_links(r)}</td>"
             f"<td class=muted>{html.escape('; '.join(r.get('reasons') or []))}</td>"
             "</tr>")
+
+
+# ── 把 flight 軌跡 payload 變成人類可讀(不顯示 JSON)──
+_STAGE_LABELS = {
+    "sweep_selected": "① 感知挑選", "nemotron_question": "② Nemotron 提問",
+    "nemotron_raw_answer": "③ Nemotron 原始回答", "nemotron_grading": "④ 多模態分級",
+    "nemoclaw_triage": "⑤ NemoClaw 治理", "incident_built": "⑥ 事件成形",
+    "policy_decision": "⑦ 政策決策", "notification": "⑧ 通知送出",
+}
+_FIELD_LABELS = {
+    "channel": "頻道", "event_type": "事件類型", "question": "提問", "answer": "模型回答",
+    "confidence": "信心", "confirmed": "已確認", "severity": "嚴重度", "summary": "摘要",
+    "visible_text": "畫面文字", "ocr_text": "OCR 文字", "cheap_evidence": "初步證據",
+    "counts": "偵測數", "falcon_query": "Falcon 查詢", "frame_path": "影格", "playhead_sec": "播放秒數",
+    "governed_by": "治理者", "rationale": "理由", "recommended_action": "建議處置", "cheap_text": "畫面文字",
+    "triage_guardrail": "安全護欄", "decision": "決策", "actions": "動作", "channels": "通知管道",
+    "injection_detected": "偵測注入", "reasons": "理由", "policy_hits": "政策命中", "media_refs": "媒體",
+    "source_video_path": "來源影片", "video_path": "來源影片", "trace_id": "追蹤碼",
+    "degraded": "降級", "evidence_citations": "證據引用", "finding": "發現", "tool": "工具",
+}
+
+
+def _stage_chip(stage):
+    label = _STAGE_LABELS.get(stage, stage or "—")
+    return f"<span class='badge b-gov'>{html.escape(label)}</span>"
+
+
+def _try_parse_json(s):
+    """字串若是(或內含)JSON,回傳解析後物件,否則 None。"""
+    s = (s or "").strip()
+    start = s.find("{")
+    if start == -1:
+        start = s.find("[")
+    if start == -1:
+        return None
+    try:
+        return json.loads(s[start:])
+    except Exception:
+        pass
+    if s[start] != "{":
+        return None
+    depth = 0
+    for i in range(start, len(s)):
+        if s[i] == "{":
+            depth += 1
+        elif s[i] == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(s[start:i + 1])
+                except Exception:
+                    return None
+    return None
+
+
+def _humanize_value(v):
+    if isinstance(v, bool):
+        return "是" if v else "否"
+    if v is None:
+        return "—"
+    if isinstance(v, str):
+        parsed = _try_parse_json(v)
+        return _humanize_value(parsed) if parsed is not None else v
+    if isinstance(v, dict):
+        parts = []
+        for k, val in v.items():
+            lbl = _FIELD_LABELS.get(k, k)
+            if isinstance(val, (int, float)) and not isinstance(val, bool):
+                parts.append(f"{lbl}×{val}")
+            else:
+                parts.append(f"{lbl}:{_humanize_value(val)}")
+        return "、".join(parts)
+    if isinstance(v, (list, tuple)):
+        return "、".join(_humanize_value(x) for x in v) if v else "—"
+    return str(v)
+
+
+def _clean_text(field, text):
+    text = str(text)
+    if field == "question":
+        # 提問裡常內含「只輸出 JSON,格式:{...}」範本,UI 不顯示那段
+        for marker in ("只輸出", "格式:", "格式:", "輸出 JSON", "回傳 JSON"):
+            idx = text.find(marker)
+            if idx > 0:
+                text = text[:idx].rstrip("。,, \n")
+                break
+    return text if len(text) <= 280 else text[:277] + "…"
+
+
+def _humanize_payload(payload):
+    if not isinstance(payload, dict):
+        return html.escape(str(payload)) if payload else "<span class=muted>—</span>"
+    rows = []
+    for k, v in payload.items():
+        if v in (None, "", [], {}):
+            continue
+        val = _clean_text(k, _humanize_value(v))
+        if not str(val).strip():
+            continue
+        rows.append(f"<div class=kv><span class=k>{html.escape(_FIELD_LABELS.get(k, k))}</span>"
+                    f"<span class=v>{html.escape(str(val))}</span></div>")
+    return "".join(rows) or "<span class=muted>—</span>"
 
 
 def _render_attack_matrix():
@@ -258,7 +363,7 @@ def _render_media_panel(row):
   <div><h4>錄影切片</h4>{video_html}</div>
   <div><h4>{html.escape(image_title)}</h4>{image_html}</div>
 </div>
-<p class=muted>Falcon query: <code>{html.escape(str(query))}</code> · counts: <code>{html.escape(json.dumps(counts, ensure_ascii=False))}</code></p>
+<p class=muted>Falcon 查詢:{html.escape(str(query) or "—")} · 偵測:{html.escape(_humanize_value(counts) if counts else "—")}</p>
 </section>"""
 
 def _render_trace(trace_id):
@@ -269,9 +374,9 @@ def _render_trace(trace_id):
     items = "".join(
         "<tr>"
         f"<td>{i}</td>"
-        f"<td>{html.escape(r.get('ts_iso', ''))}</td>"
-        f"<td>{html.escape(r.get('stage', ''))}</td>"
-        f"<td>{html.escape(flight_recorder.compact_payload(r.get('payload'), width=900))}</td>"
+        f"<td class=muted>{html.escape(r.get('ts_iso', ''))}</td>"
+        f"<td>{_stage_chip(r.get('stage', ''))}</td>"
+        f"<td>{_humanize_payload(r.get('payload'))}</td>"
         "</tr>"
         for i, r in enumerate(rows, 1)
     )
