@@ -17,7 +17,7 @@ Falcon sweep(便宜,連續) → 〔有候選〕→ Nemotron-Omni 多模態確認
 | **核心模型 = Nemotron** ✅ | 每個事件的多模態確認/描述/分級皆由 `Nemotron-3-Nano-Omni-30B`(本機 vLLM :31010)推理 |
 | **autonomous / no human in loop** ✅ | supervisor 迴圈 7×24 自跑,無人觸發、無人確認 |
 | **long-running 架構** ✅ | cheap-sweep 連續、Nemotron 按需喚起、per-cycle watchdog;systemd 開機自啟 |
-| **real task / production-ready** ✅ | 真實工安事件全鏈處理;systemd 常駐、JSONL 稽核持久化、優雅降級 |
+| **real task / production-ready** ✅ | 真實工安事件全鏈處理;systemd 常駐、SQLite 資料 + JSONL 稽核持久化(免 DB server)、優雅降級 |
 | **persistent deployment** ✅ | systemd `Restart=always` + 稽核 `audit.jsonl` + `flight_recorder.jsonl`(重啟可查) |
 | **bonus:NemoClaw policy guardrails** ✅✅ | **裝了真正的 NVIDIA NemoClaw**(OpenShell 沙箱 + policy + intent verification),治理決策 `governed_by=nemoclaw-openshell` |
 
@@ -31,7 +31,7 @@ Falcon sweep(便宜,連續) → 〔有候選〕→ Nemotron-Omni 多模態確認
 全部跑在**一台 GB10**(Nemotron + Falcon + NemoClaw 共存,零雲端推理)。
 
 ## 技術棧 / 復用
-Nemotron-3-Nano-Omni-NVFP4(vLLM)· NVIDIA NemoClaw / OpenShell · Falcon Perception · Telegram · MongoDB · GB10(aarch64, sm_121)。複用既有 Sentinel appliance 約 80%(5 個 `sentinel-*` 工具、event-types、通知、持久化)。
+Nemotron-3-Nano-Omni-NVFP4(vLLM)· NVIDIA NemoClaw / OpenShell · Falcon Perception · Telegram · **SQLite(預設,免 DB server)/ MongoDB(選用)** · GB10(aarch64, sm_121)。複用既有 Sentinel appliance 約 80%(5 個 `sentinel-*` 工具、event-types、通知、持久化);資料層與 FPG 共用 MongoDB 脫鉤,全 `sentinel-*` 工具經端到端煙霧驗證可在 SQLite 後端運作。
 
 ## 快速啟動
 ```bash
@@ -41,4 +41,4 @@ python3 nemoclaw/dashboard/app.py                  # 治理稽核 dashboard :809
 ```
 demo:`bash nemoclaw/demo_attack_scene.sh`(防注入決勝)· `nemoclaw/nemoclaw-flight-recorder --latest 3`
 
-— Henry Lu · NemoClaw · 42 單元測試通過 · 27 commits(branch `nemoclaw-sentinel`)
+— Henry Lu · NemoClaw · 67 單元測試通過 · 54 commits(branch `nemoclaw-sentinel`)
