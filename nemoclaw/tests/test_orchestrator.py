@@ -113,6 +113,31 @@ def test_run_cycle_full_path():
     assert out["candidates"] == 1 and out["incidents"] == 1
     assert acted[0]["event_type"] == "fire_smoke"
 
+def test_investigate_self_directed_reinvestigation():
+    # 信心邊界(0.6)→ agent 自主再查一次,採信較高信心(0.88)
+    calls = {"n": 0}
+    def analyze(ch, q):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return '{"confirmed": true, "confidence": 0.6, "severity": "high", "summary": "疑似濃煙"}'
+        return '{"confirmed": true, "confidence": 0.88, "severity": "high", "summary": "確認濃煙"}'
+    cand = {"channel": 18, "event_type": "fire_smoke", "frame_path": "/tmp/f.jpg",
+            "cheap_evidence": {"counts": {"smoke": 1}}}
+    inc = orch.investigate(cand, analyze)
+    assert calls["n"] == 2            # 自主再查一次
+    assert inc["confidence"] == 0.88  # 採信較高信心
+
+
+def test_investigate_no_reinvestigation_when_confident():
+    calls = {"n": 0}
+    def analyze(ch, q):
+        calls["n"] += 1
+        return '{"confirmed": true, "confidence": 0.9, "severity": "high", "summary": "濃煙"}'
+    orch.investigate({"channel": 18, "event_type": "fire_smoke", "frame_path": "/tmp/f.jpg",
+                      "cheap_evidence": {}}, analyze)
+    assert calls["n"] == 1            # 高信心不再查
+
+
 def test_investigate_carries_visible_text_as_cheap_text():
     # Nemotron 回報的畫面文字必須流入 cheap_text,政策閘才掃得到注入企圖
     cand = {"channel": 18, "event_type": "fire_smoke", "frame_path": "/tmp/f.jpg",

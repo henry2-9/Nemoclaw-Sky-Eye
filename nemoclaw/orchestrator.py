@@ -8,6 +8,7 @@ import flight_recorder
 EVENT_PRIORITY = {"fire_smoke": 0, "intrusion": 1, "abnormal_crowd": 2, "abnormal_weather": 3}
 SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 INJECTION_HINTS = ("忽略", "系統測試", "別通報", "演習", "ignore", "drill", "disable")
+REINVESTIGATE_THRESHOLD = 0.7   # 信心 < 此值且 ≥0.5 → agent 自主再查一次(P0-3)
 HAZARD = {
     "fire_smoke": "火災或濃煙",
     "intrusion": "未授權人員闖入",
@@ -91,6 +92,20 @@ def _triage_severity(visual_severity, proposed_severity, cheap_text):
         return visual_severity, f"triage downgrade {proposed_severity}->{visual_severity} ignored: scene text is untrusted"
     return proposed_severity, None
 
+def _maybe_reinvestigate(trace_id, candidate, g, analyze_fn):
+    """P0-3 自主調查:信心落在邊界(0.5 ≤ c < 門檻)時,agent 不直接放掉,
+    自主再追問一次、逐幀複查,取信心較高者。bounded:最多 1 次。"""
+    conf = g.get("confidence", 0) or 0
+    if not analyze_fn or conf >= REINVESTIGATE_THRESHOLD or conf < 0.5:
+        return g
+    flight_recorder.record_stage(trace_id, "autonomous_investigation",
+                                 {"reason": "borderline confidence", "prev_confidence": conf})
+    q2 = build_question(candidate["event_type"]) + "(自主複查)請逐幀更仔細確認是否確有危害,如實回報。"
+    g2 = parse_grading(analyze_fn(candidate["channel"], q2))
+    flight_recorder.record_stage(trace_id, "reinvestigation_grading", g2)
+    return g2 if (g2.get("confidence", 0) or 0) >= conf else g
+
+
 def investigate(candidate, analyze_fn, triage_fn=None):
     """Nemotron 確認+分級(視覺);未確認回 None。
     若提供 triage_fn(真 NemoClaw-Hermes 文字 triage),用其 severity/action 治理決策。"""
@@ -105,6 +120,7 @@ def investigate(candidate, analyze_fn, triage_fn=None):
     flight_recorder.record_stage(trace_id, "nemotron_raw_answer", {"answer": answer})
     g = parse_grading(answer)
     flight_recorder.record_stage(trace_id, "nemotron_grading", g)
+    g = _maybe_reinvestigate(trace_id, candidate, g, analyze_fn)
     if not g["confirmed"]:
         return None
     cheap_text = _cheap_text(candidate, g)
