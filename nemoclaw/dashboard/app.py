@@ -191,6 +191,14 @@ h4{margin:6px 0}
 .se-name{color:#e2e6ff;font-size:13.5px;font-weight:600;margin:3px 0 6px;line-height:1.3}
 .se-status{font-size:12px;font-weight:700}
 .se-ts{color:#7d86ad;font-size:11px;margin-top:3px;font-family:ui-monospace,monospace}
+details.audit-more{margin-top:10px}
+details.audit-more summary{cursor:pointer;padding:8px 12px;border-radius:8px;
+  background:rgba(255,255,255,.04);color:#9aa3c7;font-size:12.5px;user-select:none;list-style:none}
+details.audit-more summary::before{content:'▸ ';color:#7d86ad}
+details.audit-more[open] summary::before{content:'▾ '}
+details.audit-more summary:hover{background:rgba(255,255,255,.08);color:#e2e6ff}
+details.audit-more[open] summary{background:rgba(255,255,255,.06);color:#e2e6ff;margin-bottom:6px}
+details.audit-more table{font-size:12.5px}
 """
 
 _BADGE_CLS = {"ALLOW": "b-allow", "BLOCK": "b-block", "DEDUP": "b-dedup", "ABSTAIN": "b-abstain"}
@@ -691,7 +699,13 @@ class H(BaseHTTPRequestHandler):
             _eff_stat(m['capped'], "⏭ cheap 擋下"),
             _eff_stat(f"{m['median_latency']}s / {m['p95_latency']}s", "⏱ 延遲 中位/p95"),
         ])
-        items = "".join(_incident_row(r) for r in reversed(rows[-60:]))
+        recent = list(reversed(rows[-60:]))
+        items = "".join(_incident_row(r) for r in recent[:12])
+        rest_count = max(0, len(recent) - 12)
+        audit_expand = (
+            f"<details class=audit-more><summary>展開全部 · 另 {rest_count} 列</summary>"
+            f"<table><tbody>{''.join(_incident_row(r) for r in recent[12:])}</tbody></table></details>"
+            if rest_count > 0 else "")
         attack_matrix = _render_attack_matrix()
         html = f"""<!doctype html><html lang=zh-Hant><head><meta charset=utf-8>
 <meta http-equiv=refresh content=5><title>NemoClaw Sentinel</title>
@@ -709,9 +723,9 @@ class H(BaseHTTPRequestHandler):
 <section class='panel glass'><h3>⚡ 級聯效率 <span class=muted style='font-size:11px;font-weight:400'>便宜感知連續掃,只有出事才喚醒 Nemotron</span></h3>
 <div class=stats>{eff}</div></section>
 {attack_matrix}
-<section class='panel glass'><h3>📋 決策稽核軌跡</h3>
+<section class='panel glass'><h3>📋 決策稽核軌跡 <span class=muted style='font-size:11px;font-weight:400'>最新 {len(recent)} 列,預設顯示 12 列</span></h3>
 <table><thead><tr><th>時間</th><th>Ch</th><th>類型</th><th>決策</th><th>治理</th><th>注入</th><th>動作</th><th>Flight</th><th>媒體</th><th>理由</th></tr></thead>
-<tbody>{items}</tbody></table></section>
+<tbody>{items}</tbody></table>{audit_expand}</section>
 </div></body></html>"""
         self._send_html(html)
 
