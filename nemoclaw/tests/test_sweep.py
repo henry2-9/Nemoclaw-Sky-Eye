@@ -3,7 +3,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import sweep
 
 # event_type → (query, 觸發門檻):counts 中相關類別 >= 門檻則為候選
-def test_candidate_when_threshold_met(monkeypatch):
+def test_candidate_when_threshold_met(monkeypatch, tmp_path):
+    # 隔離 baseline/feed_health 狀態,避免被先前累積污染(crowd 用 baseline 冷啟動 floor=2)
+    monkeypatch.setenv("NEMOCLAW_BASELINE_PATH", str(tmp_path / "b.json"))
+    monkeypatch.setenv("NEMOCLAW_FEED_HEALTH_PATH", str(tmp_path / "h.json"))
     monkeypatch.setattr(sweep.falcon_client, "detect",
         lambda img, q, **k: {"counts": {"person": 3}})
     monkeypatch.setattr(sweep.feed, "grab_frame", lambda *a, **k: "/tmp/f.jpg")
