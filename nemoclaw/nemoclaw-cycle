@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import register_channels, sweep, orchestrator, act, nemoclaw_triage
 import curiosity as _curiosity
 import thoughts as _thoughts
+import briefing as _briefing
 
 NEMOCLAW_DIR = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.normpath(os.path.join(NEMOCLAW_DIR, "..", "tools"))
@@ -76,6 +77,21 @@ def main():
         "decisions": [r.get("decision") for r in result["results"]],
     }
     print(json.dumps(summary, ensure_ascii=False))
+    _maybe_refresh_briefing()
+
+
+def _maybe_refresh_briefing(min_age_seconds=900):
+    """agent 自主重生情勢簡報:離上次超過 N 秒才動,避免每輪都打 Nemotron。"""
+    p = _briefing.latest_path()
+    if os.path.exists(p) and (time.time() - os.path.getmtime(p)) < min_age_seconds:
+        return
+    try:
+        text = _briefing.generate_briefing(hours=1, vlm_fn=_briefing._vlm_text)
+        if text:
+            _briefing.write_latest(text)
+            _thoughts.record(f"自主彙整過去 1 小時情勢:{text[:90]}", source="briefing")
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     main()
