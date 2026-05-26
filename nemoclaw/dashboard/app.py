@@ -101,6 +101,11 @@ def _efficiency_metrics():
 
 
 COLOR = {"ALLOW": "#0a7", "BLOCK": "#c33", "DEDUP": "#888", "ABSTAIN": "#e90"}
+SEVERITY_ZH = {"critical": "嚴重", "high": "高", "medium": "中", "low": "低"}
+
+
+def _sev_zh(s):
+    return SEVERITY_ZH.get(str(s or "").lower(), str(s or "—"))
 
 # ── 深色玻璃擬態主題(主頁與 trace 頁共用)──
 STYLE = """
@@ -489,9 +494,10 @@ def _render_current_incident(rows):
     urls = (r.get("media_artifacts") or {}).get("urls") or {}
     clip = urls.get("clip") or ""
     annot = urls.get("falcon_annotated") or urls.get("frame") or ""
-    sev = str(r.get("severity", "")).upper()
+    sev_raw = str(r.get("severity", "")).upper()
     sevcls = {"CRITICAL": "b-block", "HIGH": "b-block",
-              "MEDIUM": "b-abstain", "LOW": "b-dedup"}.get(sev, "b-dedup")
+              "MEDIUM": "b-abstain", "LOW": "b-dedup"}.get(sev_raw, "b-dedup")
+    sev = _sev_zh(r.get("severity"))
     marks = []
     if r.get("escalated"):
         marks.append("<span class='badge b-block'>🔴 二級升級</span>")
@@ -530,8 +536,8 @@ def _render_attack_matrix():
         blocked = "<span class=ok>✅ 已阻擋</span>" if r.get("defended") else "<span class=bad>❌ 未阻擋</span>"
         recognized = ("<span class='badge b-inj'>⚠ 識破</span>" if r.get("injection_flagged")
                       else "<span class=muted>—</span>")
-        sev = ("<span class=ok>維持 critical</span>" if r.get("severity_retained")
-               else f"<span class=bad>被降為 {html.escape(str(r.get('severity_after')))}</span>")
+        sev = ("<span class=ok>維持嚴重</span>" if r.get("severity_retained")
+               else f"<span class=bad>被降為{_sev_zh(r.get('severity_after'))}</span>")
         action = "放行並通報" if r.get("still_notifies") else html.escape(str(r.get("policy_decision", "")))
         rows += (f"<tr><td><b>{html.escape(r.get('name',''))}</b></td>"
                  f"<td><code>{html.escape(r.get('modality',''))}</code></td>"
