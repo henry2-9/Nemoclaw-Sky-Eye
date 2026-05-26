@@ -1,12 +1,14 @@
-# 🛡️ NemoClaw Sentinel
+# 🌐 NemoClaw 天眼 · Sky Eye
 
 > **NVIDIA Agent Hackathon 參賽作品** — 在單台 DGX Spark **GB10** 上,以 **Nemotron** 為核心推理模型,
-> 打造**零人工介入、7×24 自主巡檢**的多模態工安/安全哨兵。
+> 打造**零人工介入、7×24** 監看全球城市/交通/公共地標的**自主 AI 監控哨兵**。
 >
 > 運行血緣:`OpenClaw → Hermes → **NemoClaw**`(Nemotron 核心 + Hermes 通知 + policy 護欄)。
 
-一台 GB10、16 路模擬攝影機、4 類危害(火災/煙、入侵、異常人流、異常天候)、零人工介入地
-偵測 → 調查 → 分級 → 通知,每個對外動作都先過 **NemoClaw 政策護欄**並留**稽核軌跡**。
+一台 GB10,agent 自主巡檢全球 live 攝影機(EarthCam NYC、Skyline 義大利地標、Niagara、
+Virtual Railfan…且能**自己上 YouTube 找新地標**),只偵測**可疑/異常事件**(火/煙、衝突、被遺棄物、
+異常人群、車禍、闖入)。零人工介入:偵測→自主調查→分級治理→處置/通知/產報告→自我維生,
+每個對外動作都先過 **NemoClaw 政策護欄**並留**稽核軌跡**。
 
 ---
 

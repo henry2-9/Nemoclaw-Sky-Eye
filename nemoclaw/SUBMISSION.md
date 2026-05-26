@@ -1,6 +1,6 @@
-# 🛡️ NemoClaw Sentinel — NVIDIA Agent Hackathon 提交摘要
+# 🌐 NemoClaw 天眼 · Sky Eye — NVIDIA Agent Hackathon 提交摘要
 
-> **Nemotron 負責看,NVIDIA NemoClaw 負責守。** 單台 DGX Spark **GB10** 上、**零人工介入**、7×24 自主巡檢的多模態工安/安全哨兵 —— 不是概念 demo,是每個動作都受政策護欄治理、全程可稽核的 production agent。
+> **Nemotron 負責看,NVIDIA NemoClaw 負責守。** 單台 DGX Spark **GB10** 上、**零人工介入**、7×24 自主巡檢全球城市/交通/公共地標的天眼 agent —— **自主上 YouTube 找地標、自學基線、自主調查、自主處置、自我維生、可證 0 人工**,每個動作都受 NemoClaw 政策護欄治理、全程可稽核。
 
 ## 它做什麼
 16 路攝影機、四類危害(火災/煙、入侵、異常人流、異常天候),自主完成 **偵測 → 多模態調查 → 分級 → 治理 → 通知**,全程無人。便宜的 Falcon 感知連續掃 16 路,**只有出事才喚醒 30B Nemotron**——這是單台 GB10 撐 16 路的關鍵。

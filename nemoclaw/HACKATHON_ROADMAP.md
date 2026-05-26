@@ -1,5 +1,7 @@
 # NemoClaw Sentinel Hackathon Roadmap
 
+> **⚠️ [歷史紀錄]** — 早期路線圖,P0/P1 多已完成。當前衝刺主線見 [`WIN_PLAN.md`](WIN_PLAN.md)(以「全自主、零人工」為核心的天眼版)。
+>
 > 目標：在送件前將 NemoClaw Sentinel 打磨成可穩定重現、可稽核、可證明長時間自主運作的安全監控 agent。
 >
 > 活動頁：<https://luma.com/agent-challenge?ncid=ref-qr-275191&tk=BIIar8>  

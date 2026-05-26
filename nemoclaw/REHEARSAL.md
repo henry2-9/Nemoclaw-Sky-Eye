@@ -1,5 +1,7 @@
 # 🎬 NemoClaw Sentinel — Demo 演練紀錄
 
+> **⚠️ [歷史紀錄 · 2026-05-24]** — 描述本地 16 路 mp4 時代的演練;當前最新錄製本見 [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)(天眼 · 全球地標版)。
+
 - **日期**:2026-05-24
 - **HEAD**:`6bd1ac2`(branch `nemoclaw-sentinel`)
 - **演練對象**:`DEMO_SCRIPT.md` 七鏡頭版(含 flight recorder + 攻擊場景,commit `a992453`)
