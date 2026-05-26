@@ -26,6 +26,10 @@ try:
     import thoughts as _thoughts
 except Exception:
     _thoughts = None
+try:
+    import feed_health as _feed_health
+except Exception:
+    _feed_health = None
 
 AUDIT = os.environ.get("NEMOCLAW_AUDIT_PATH",
                        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "audit.jsonl"))
@@ -176,6 +180,12 @@ h4{margin:6px 0}
 .th-ts{color:#7d86ad;font-family:ui-monospace,monospace;font-size:11.5px;min-width:64px;flex-shrink:0}
 .th-icon{font-size:14px;min-width:18px;flex-shrink:0}
 .th-text{color:#dfe3ff;word-break:break-word;line-height:1.45}
+.se-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.se-tile{padding:13px 15px;position:relative}
+.se-id{color:#7d86ad;font-size:11px;font-family:ui-monospace,monospace}
+.se-name{color:#e2e6ff;font-size:13.5px;font-weight:600;margin:3px 0 6px;line-height:1.3}
+.se-status{font-size:12px;font-weight:700}
+.se-ts{color:#7d86ad;font-size:11px;margin-top:3px;font-family:ui-monospace,monospace}
 """
 
 _BADGE_CLS = {"ALLOW": "b-allow", "BLOCK": "b-block", "DEDUP": "b-dedup", "ABSTAIN": "b-abstain"}
@@ -403,6 +413,33 @@ _THOUGHT_TAGS = {
 }
 
 
+def _render_sky_eye_grid():
+    """天眼網格:每個全球地標頻道顯示 online/offline 狀態,agent 自主管理外部來源。"""
+    if not _feed_health:
+        return ""
+    full = _feed_health.state()
+    # 天眼網格僅顯示 landmark 頻道(id ≥ 200);舊本地/區域 cam 不入網格
+    st = {k: v for k, v in full.items() if str(k).isdigit() and int(k) >= 200}
+    if not st:
+        return ""
+    online = sum(1 for v in st.values() if v.get("ok"))
+    tiles = []
+    for k, v in sorted(st.items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0):
+        ok = v.get("ok")
+        color = "#34d399" if ok else "#f87171"
+        status = "🟢 online" if ok else "🔴 offline"
+        ts = (v.get("last", "") or "")[-8:]
+        tiles.append(
+            f"<div class='se-tile glass' style='border-left:3px solid {color};box-shadow:0 0 14px {color}22'>"
+            f"<div class=se-id>ch{html.escape(str(k))}</div>"
+            f"<div class=se-name>{html.escape(v.get('name', ''))}</div>"
+            f"<div class=se-status style='color:{color}'>{status}</div>"
+            f"<div class=se-ts>{html.escape(ts)}</div></div>")
+    return (f"<section class='panel glass'><h3>🌐 天眼 · 全球地標即時 "
+            f"<span class=muted style='font-size:11px;font-weight:400'>{online}/{len(st)} 線上 · agent 自主管理外部來源</span></h3>"
+            f"<div class=se-grid>{''.join(tiles)}</div></section>")
+
+
 def _render_thoughts():
     if not _thoughts:
         return ""
@@ -603,6 +640,7 @@ class H(BaseHTTPRequestHandler):
         m = _efficiency_metrics()
         health = _health_now()
         command_center = _render_command_center(rows, health)
+        sky_eye_grid = _render_sky_eye_grid()
         thoughts_panel = _render_thoughts()
         current_incident = _render_current_incident(rows)
         status_html = (_health_dots(health)
@@ -635,11 +673,12 @@ class H(BaseHTTPRequestHandler):
 <meta http-equiv=refresh content=5><title>NemoClaw Sentinel</title>
 <style>{STYLE}</style></head><body><div class=wrap>
 <header class='head glass'>
-  <div><div class=brand>🛡 NEMOCLAW SENTINEL</div>
-  <div class=sub>自主巡檢治理稽核 · Nemotron 看 · NemoClaw 守 · 單台 GB10</div></div>
+  <div><div class=brand>🌐 NEMOCLAW 天眼 · SKY EYE</div>
+  <div class=sub>全球地標 7×24 自主巡檢 · Nemotron 看 · NemoClaw 守 · 單台 GB10</div></div>
   <div class=status>{status_html}</div>
 </header>
 {command_center}
+{sky_eye_grid}
 {thoughts_panel}
 {current_incident}
 <div class=tiles>{tiles}</div>

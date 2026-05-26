@@ -4,6 +4,7 @@ import os, json, time, tempfile
 import feed, falcon_client
 import baseline as _baseline
 import thoughts as _thoughts
+import feed_health as _feed_health
 
 # event_type → (Falcon query, 觸發關鍵類別, 門檻)
 RULES = {
@@ -29,7 +30,18 @@ def sweep_channels(channels):
             second=playhead,
         )
         if not frame:
+            t = _feed_health.mark(c["id"], c.get("name", ""), ok=False, reason="grab_frame failed")
+            if t == "offline":
+                _thoughts.record(
+                    f"ch{c['id']}({c.get('name','')}) 來源無法取幀,我把它標離線(會自主重試)",
+                    source="watchdog")
             continue
+        # 取幀成功:更新健康;轉回上線記思考
+        t_up = _feed_health.mark(c["id"], c.get("name", ""), ok=True)
+        if t_up == "online":
+            _thoughts.record(
+                f"ch{c['id']}({c.get('name','')}) 來源恢復連線——我重新納入巡檢",
+                source="watchdog")
         res = falcon_client.detect(frame, query)
         if not res:
             continue

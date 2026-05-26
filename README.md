@@ -1,6 +1,6 @@
-# 🛡️ NemoClaw Sentinel
+# 🌐 NemoClaw 天眼 · Sky Eye
 
-**自主多模態工安/安全哨兵 · 單台 DGX Spark GB10 · Nemotron 核心 · 真 NVIDIA NemoClaw 治理**
+**全球地標 7×24 自主巡檢哨兵 · 單台 DGX Spark GB10 · Nemotron 核心 · 真 NVIDIA NemoClaw 治理**
 
 > NVIDIA Agent Hackathon 參賽作品。**Nemotron 負責看,NVIDIA NemoClaw 負責守。**
 > 16 路攝影機、四類危害、7×24 零人工介入 —— 不是概念 demo,是每個動作都受政策護欄治理、全程可稽核的 production agent。
