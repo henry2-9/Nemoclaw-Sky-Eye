@@ -461,7 +461,14 @@ def _render_thoughts():
 
 
 def _latest_media_row(rows):
+    """挑最近一筆 landmark(ch≥200)且有 media 的事件——專為「天眼」面板用。"""
     for r in reversed(rows):
+        try:
+            ch = int(r.get("channel"))
+        except Exception:
+            continue
+        if ch < 200:
+            continue
         urls = (r.get("media_artifacts") or {}).get("urls") or {}
         if urls.get("clip") or urls.get("falcon_annotated") or urls.get("frame"):
             return r
@@ -469,10 +476,13 @@ def _latest_media_row(rows):
 
 
 def _render_current_incident(rows):
-    """首頁直接秀最新事件的錄影切片 + Falcon 標記圖 + 自主處置標記。"""
+    """首頁直接秀最新「天眼事件」的錄影切片 + Falcon 標記圖 + 自主處置標記。"""
     r = _latest_media_row(rows)
     if not r:
-        return ""
+        return ("<section class='panel glass'>"
+                "<h3>🎥 最新天眼事件 · 自主處置</h3>"
+                "<p class=muted>天眼持續巡檢全球地標中——目前尚無確認的觀察事件;有事件時將自動連同錄影切片在此呈現。</p>"
+                "</section>")
     urls = (r.get("media_artifacts") or {}).get("urls") or {}
     clip = urls.get("clip") or ""
     annot = urls.get("falcon_annotated") or urls.get("frame") or ""
@@ -493,7 +503,7 @@ def _render_current_incident(rows):
     img_html = (f"<a href='{html.escape(annot)}'><img src='{html.escape(annot)}' alt='Falcon 標記圖'></a>"
                 if annot else "<div class=empty>無標記圖</div>")
     return f"""<section class='panel glass'>
-  <h3>🎥 最新事件 · 自主處置 <span class='badge {sevcls}'>{sev or '—'}</span>
+  <h3>🎥 最新天眼事件 · 自主處置 <span class='badge {sevcls}'>{sev or '—'}</span>
     <span class=muted style='font-weight:400'>{html.escape(str(r.get('channel','')))} · {html.escape(str(r.get('event_type','')))}</span>
     {' '.join(marks)}</h3>
   <div class=media-grid>

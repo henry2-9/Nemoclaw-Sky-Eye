@@ -116,8 +116,14 @@ def create_clip(video_path, out_path, center_sec=None, pre_roll=None, duration=N
     duration = float(duration or os.environ.get("NEMOCLAW_CLIP_SECONDS", "8"))
     if is_stream(video_path):
         # live 串流無法回放:從事件當下往後錄製 forward clip(post-event)。
+        # YouTube URL 先用 yt-dlp 解成 HLS,ffmpeg 才吃得到。
+        try:
+            from feed import resolve_url
+            real = resolve_url(video_path) or video_path
+        except Exception:
+            real = video_path
         cmd = [
-            "ffmpeg", "-y", "-loglevel", "error", "-i", video_path,
+            "ffmpeg", "-y", "-loglevel", "error", "-i", real,
             "-t", f"{duration:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
             "-an", "-movflags", "+faststart", out_path,
         ]

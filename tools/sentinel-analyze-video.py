@@ -90,6 +90,21 @@ def get_video_info(path: str):
     raise ValueError(f"找不到影片串流: {path}")
 
 
+def _resolve_youtube(url: str) -> str:
+    """YouTube URL → 透過 yt-dlp 取 HLS;非 YouTube 或失敗則原樣回傳。"""
+    s = str(url or "").lower()
+    if ("youtube.com" not in s) and ("youtu.be" not in s):
+        return url
+    try:
+        r = subprocess.run(["yt-dlp", "-g", url], capture_output=True, text=True, timeout=20)
+        out = (r.stdout or "").strip().splitlines()
+        if out and out[0].startswith("http"):
+            return out[0]
+    except Exception:
+        pass
+    return url
+
+
 def extract_one_frame(source: str, second: float) -> str | None:
     """擷取影片第 second 秒的幀，回傳暫存路徑"""
     out = f"/tmp/sentinel_frame_at_{int(second)}.jpg"
@@ -102,8 +117,10 @@ def extract_one_frame(source: str, second: float) -> str | None:
 
 
 def extract_frames(source: str, fps: float = 1.0, max_frames: int = 120):
-    """從影片依 fps 抽幀，回傳 (base64_list, duration)。
-    live 串流(rtsp/http(s),無 duration)→ 一次 ffmpeg 抓當前數幀(省連線、不連續解碼)。"""
+    """從影片依 fps 抽幀,回傳 (base64_list, duration)。
+    YouTube URL → yt-dlp 解 HLS 後再給 ffmpeg。
+    live 串流(rtsp/http(s)) → 一次 ffmpeg 抓當前數幀(省連線、不連續解碼)。"""
+    source = _resolve_youtube(source)
     is_stream = source.lower().startswith(("rtsp://", "http://", "https://"))
     try:
         duration, _ = get_video_info(source)
