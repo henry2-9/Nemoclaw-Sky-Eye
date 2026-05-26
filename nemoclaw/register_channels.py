@@ -10,9 +10,10 @@ def _load_one(yaml_path):
         return yaml.safe_load(f) or {"channels": []}
 
 
-def load_channels(yaml_path):
-    """讀主 yaml,並合併同目錄下 `discovered.yaml`(若存在)——
-    讓 agent 自主探索新增的地標下一輪自動進入巡檢。"""
+def load_channels(yaml_path, merge_discovered=False):
+    """讀主 yaml。merge_discovered=True 時合併同目錄下 `discovered.yaml`(若存在)——
+    讓 agent 自主探索新增的地標下一輪自動進入巡檢。生產(cycle/CLI)預設開啟,
+    單元測試預設關閉避免被 runtime discovered 污染。"""
     data = _load_one(yaml_path)
     vdir = os.path.expandvars(os.path.expanduser(data.get("video_dir", "")))
     out, seen_ids = [], set()
@@ -23,12 +24,13 @@ def load_channels(yaml_path):
         else:
             c["path"] = os.path.abspath(os.path.join(vdir, c["file"]))
         out.append(c); seen_ids.add(c["id"])
-    discovered_path = os.path.join(os.path.dirname(os.path.abspath(yaml_path)), "discovered.yaml")
-    for c in _load_one(discovered_path).get("channels", []) or []:
-        if c.get("id") in seen_ids:
-            continue
-        c = dict(c); c["path"] = os.path.expandvars(c.get("url", ""))
-        out.append(c); seen_ids.add(c["id"])
+    if merge_discovered:
+        discovered_path = os.path.join(os.path.dirname(os.path.abspath(yaml_path)), "discovered.yaml")
+        for c in _load_one(discovered_path).get("channels", []) or []:
+            if c.get("id") in seen_ids:
+                continue
+            c = dict(c); c["path"] = os.path.expandvars(c.get("url", ""))
+            out.append(c); seen_ids.add(c["id"])
     return out
 
 def _add_stream_channel(db, name, url, channel_id, location="NemoClaw Sentinel"):
@@ -64,7 +66,7 @@ def channels_file():
 def main():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import db_factory
-    chans = load_channels(channels_file())
+    chans = load_channels(channels_file(), merge_discovered=True)
     register(chans, db_factory.channel_db())
     print(f"registered/verified {len(chans)} channels from {channels_file()} "
           f"[backend={db_factory.backend()}]")

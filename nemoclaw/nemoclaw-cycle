@@ -49,7 +49,7 @@ def _recent_handled(window):
     return handled
 
 def main():
-    chans = register_channels.load_channels(register_channels.channels_file())
+    chans = register_channels.load_channels(register_channels.channels_file(), merge_discovered=True)
     max_n = int(os.environ.get("NEMOCLAW_MAX_PER_CYCLE", "4"))
     window = act.load_policy().get("gating", {}).get("dedup_window_seconds", 300)
     exclude = _recent_handled(window)
