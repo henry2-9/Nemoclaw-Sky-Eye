@@ -461,13 +461,16 @@ def _render_thoughts():
 
 
 def _latest_media_row(rows):
-    """挑最近一筆 landmark(ch≥200)且有 media 的事件——專為「天眼」面板用。"""
+    """挑最近一筆 landmark(ch≥200)、severity ≥ medium 且有 media 的「可疑事件」。
+    低嚴重度只是常態觀察,不上事件面板(會被計入思考流)。"""
     for r in reversed(rows):
         try:
             ch = int(r.get("channel"))
         except Exception:
             continue
         if ch < 200:
+            continue
+        if r.get("severity") in (None, "", "low"):
             continue
         urls = (r.get("media_artifacts") or {}).get("urls") or {}
         if urls.get("clip") or urls.get("falcon_annotated") or urls.get("frame"):
@@ -481,7 +484,7 @@ def _render_current_incident(rows):
     if not r:
         return ("<section class='panel glass'>"
                 "<h3>🎥 最新天眼事件 · 自主處置</h3>"
-                "<p class=muted>天眼持續巡檢全球地標中——目前尚無確認的觀察事件;有事件時將自動連同錄影切片在此呈現。</p>"
+                "<p class=muted>天眼持續監看城市/交通/公共地標——目前無**可疑事件**;若偵測到火/煙/衝突/可疑物品/異常人群,將自動連同錄影切片在此呈現。日常觀察記入下方思考流。</p>"
                 "</section>")
     urls = (r.get("media_artifacts") or {}).get("urls") or {}
     clip = urls.get("clip") or ""

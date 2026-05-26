@@ -16,10 +16,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import thoughts as _thoughts
 
 SEARCH_QUERIES = (
-    "famous landmark live webcam 24/7",
-    "iconic city live cam 24/7",
-    "tourist attraction live stream",
-    "national park live cam",
+    "city street live webcam 24/7",
+    "downtown live cam plaza square",
+    "transit station airport live cam",
+    "tourist landmark live surveillance",
 )
 
 DISCOVERED_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "discovered.yaml")
@@ -111,11 +111,12 @@ def score_landmark(frame_path, title="", vlm_fn=None):
     回 (is_landmark: bool, confidence: float, name: str)。"""
     vlm_fn = vlm_fn or vlm_image_text
     q = (f"影片標題:{title}\n"
-         "你看見的這張畫面是某個 live 攝影機當下的一幀。請判斷:"
-         "這是否為「世界知名地標 / 著名觀光景點 / 大眾關注的 24/7 直播」?"
-         "城市街道、自然景觀、火車鐵道、海洋畫面等若具觀賞性也算。"
+         "你看見的這張畫面是某個 live 攝影機當下的一幀。"
+         "我們是**安全/異常監控系統**——只收**城市街道 / 公共廣場 / 交通樞紐 / 知名公共地標**這類能監看可疑事件的畫面。"
+         "純自然景觀 / 野生動物 / 海洋海底 / 太空 / 純空鏡頭 → is_landmark=false。"
+         "城市街道、地鐵站、機場、知名公共空間 → is_landmark=true。"
          "只輸出一行 JSON:"
-         '{"is_landmark": true 或 false, "name": "繁中地標/場景名稱", "confidence": 0-1}')
+         '{"is_landmark": true 或 false, "name": "繁中具體地點名稱", "confidence": 0-1}')
     ans = vlm_fn(frame_path, q)
     m = re.search(r"\{.*\}", ans or "", re.DOTALL)
     if not m:

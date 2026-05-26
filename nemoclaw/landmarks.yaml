@@ -1,13 +1,9 @@
-# 🌐 天眼 · Sky Eye:全球 24/7 知名地標 / 聚合直播頻道
-# 採 24/7 聚合頻道為主(EarthCam / Skyline / NASA 等本身就輪播數十地標),
-# 比硬鎖單一 video_id 穩。透過 yt-dlp 自動解析 @channel/live 取當下 HLS,
-# sweep 抓 1 幀進級聯;若頻道下線,feed_health watchdog 自動標離線 + 上線即恢復。
+# 🌐 天眼 · Sky Eye:全球城市/交通/公共場域 24/7 監視
+# 安全監控導向——只收城市街道、公共空間、交通樞紐、知名公共景點;
+# 純自然/野生/太空畫面不收(那是直播,不是監視)。
 # 啟用:export NEMOCLAW_CHANNELS_FILE=$NEMOCLAW_DIR/landmarks.yaml
 channels:
-  - { id: 201, name: "EarthCam · 紐約都會即時",       url: "https://www.youtube.com/@EarthCam/live",          event_type: abnormal_crowd }
-  - { id: 202, name: "Skyline · 義大利地標群播",      url: "https://www.youtube.com/@SkylineWebcams/live",    event_type: abnormal_crowd }
-  - { id: 203, name: "Niagara Falls · 尼加拉瀑布",    url: "https://www.youtube.com/@niagarafallslive/live",  event_type: abnormal_weather }
-  - { id: 204, name: "StreamTimeLive · 自然探索",     url: "https://www.youtube.com/@StreamTimeLive/live",    event_type: abnormal_weather }
-  - { id: 205, name: "Virtual Railfan · 美國鐵道",    url: "https://www.youtube.com/@VirtualRailfan/live",    event_type: traffic }
-  - { id: 206, name: "ExploreOceans · 海洋實況",      url: "https://www.youtube.com/@ExploreOceans/live",     event_type: abnormal_weather }
-  - { id: 207, name: "NASA TV · 太空中心",            url: "https://www.youtube.com/@NASA/live",              event_type: traffic }
+  - { id: 201, name: "EarthCam · 紐約都會即時",      url: "https://www.youtube.com/@EarthCam/live",         event_type: abnormal_crowd }
+  - { id: 202, name: "Skyline · 義大利地標群播",     url: "https://www.youtube.com/@SkylineWebcams/live",   event_type: abnormal_crowd }
+  - { id: 203, name: "Niagara Falls · 尼加拉瀑布",   url: "https://www.youtube.com/@niagarafallslive/live", event_type: abnormal_crowd }
+  - { id: 205, name: "Virtual Railfan · 美國鐵道",   url: "https://www.youtube.com/@VirtualRailfan/live",   event_type: abnormal_crowd }
