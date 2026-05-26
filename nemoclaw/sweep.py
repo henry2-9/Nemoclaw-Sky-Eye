@@ -2,6 +2,8 @@
 """便宜感知 sweep:掃所有 channel 當前幀,產生候選或 [SILENT]。"""
 import os, json, time, tempfile
 import feed, falcon_client
+import baseline as _baseline
+import thoughts as _thoughts
 
 # event_type → (Falcon query, 觸發關鍵類別, 門檻)
 RULES = {
@@ -32,7 +34,23 @@ def sweep_channels(channels):
         if not res:
             continue
         counts = res.get("counts", {}) or {}
-        if _hit(counts, keys, thr):
+        # abnormal_crowd:agent 自學每相機人數基線,偏離歷史才升級(不再靜態 ≥3)
+        if c["event_type"] == "abnormal_crowd":
+            person = int(counts.get("person", 0))
+            is_anom, bmax = _baseline.update_and_check(c["id"], "person", person)
+            fired = is_anom
+            if fired:
+                _thoughts.record(
+                    f"ch{c['id']}({c.get('name','')}) 人數 {person} 偏離我學到的基線(歷史上限 {bmax})→ 升級為候選",
+                    source="baseline")
+        else:
+            fired = _hit(counts, keys, thr)
+            if fired:
+                hit = {k: counts[k] for k in keys if counts.get(k)}
+                _thoughts.record(
+                    f"ch{c['id']}({c.get('name','')}) 看到 {hit} → {c['event_type']} 候選",
+                    source="sweep")
+        if fired:
             cands.append({
                 "channel": c["id"], "channel_name": c.get("name", ""),
                 "event_type": c["event_type"], "frame_path": frame,

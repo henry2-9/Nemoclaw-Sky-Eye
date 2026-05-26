@@ -4,6 +4,7 @@ import os, datetime, yaml
 import policy, redact, audit, notify
 import flight_recorder
 import media
+import thoughts as _thoughts
 
 def load_policy(path=None):
     path = path or os.path.join(os.path.dirname(__file__), "policy.yaml")
@@ -84,4 +85,11 @@ def run(incident, policy_path=None, recent=None, audit_path=None, now=None):
 
     audit.append(decision, jsonl_path=audit_path)
     flight_recorder.record_stage(decision.get("trace_id"), "policy_decision", decision)
+    parts = [f"ch{incident.get('channel')} 決策:{decision['decision']}"]
+    if decision.get("actions"):
+        parts.append(f"動作:{','.join(decision['actions'])}")
+    if decision.get("escalated"): parts.append("🔴 二級升級")
+    if decision.get("report_path"): parts.append("📄 已產報告")
+    if decision.get("injection_detected"): parts.append("⚠ 注入已擋")
+    _thoughts.record(" · ".join(parts), source="decision")
     return decision

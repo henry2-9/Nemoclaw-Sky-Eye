@@ -13,3 +13,5 @@ __pycache__/
 *.pyc
 health.jsonl
 latest_briefing.txt
+thoughts.jsonl
+baseline.jsonl

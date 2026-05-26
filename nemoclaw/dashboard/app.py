@@ -22,6 +22,10 @@ try:
     import briefing as _briefing
 except Exception:
     _briefing = None
+try:
+    import thoughts as _thoughts
+except Exception:
+    _thoughts = None
 
 AUDIT = os.environ.get("NEMOCLAW_AUDIT_PATH",
                        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "audit.jsonl"))
@@ -165,6 +169,13 @@ h4{margin:6px 0}
 .cascade .arrow{color:#5a6080;margin:0 1px}
 .brief{margin-top:13px;padding:11px 15px;border-radius:12px;background:rgba(124,92,255,.13);
   border:1px solid rgba(124,92,255,.26);color:#e2e6ff;font-size:13px;line-height:1.55}
+.thoughts{display:flex;flex-direction:column;gap:7px;max-height:330px;overflow-y:auto;font-size:13px}
+.th{display:flex;gap:10px;align-items:flex-start;padding:6px 9px;border-radius:9px;
+  background:rgba(255,255,255,.03);border-left:2px solid rgba(255,255,255,.10)}
+.th:hover{background:rgba(255,255,255,.06)}
+.th-ts{color:#7d86ad;font-family:ui-monospace,monospace;font-size:11.5px;min-width:64px;flex-shrink:0}
+.th-icon{font-size:14px;min-width:18px;flex-shrink:0}
+.th-text{color:#dfe3ff;word-break:break-word;line-height:1.45}
 """
 
 _BADGE_CLS = {"ALLOW": "b-allow", "BLOCK": "b-block", "DEDUP": "b-dedup", "ABSTAIN": "b-abstain"}
@@ -384,6 +395,34 @@ def _render_command_center(rows, health=None):
 </section>"""
 
 
+_THOUGHT_TAGS = {
+    "sweep": ("👁", "#7dd3fc"), "baseline": ("📊", "#fbbf24"),
+    "curiosity": ("🔎", "#a78bfa"), "investigate": ("🧠", "#22d3ee"),
+    "decision": ("🛡", "#34d399"), "watchdog": ("🩺", "#fb923c"),
+    "briefing": ("🗒", "#c4b5fd"), "agent": ("🤖", "#9aa3c7"),
+}
+
+
+def _render_thoughts():
+    if not _thoughts:
+        return ""
+    items = _thoughts.latest(12)
+    if not items:
+        return ""
+    rows = []
+    for it in items:
+        icon, color = _THOUGHT_TAGS.get(it.get("source", "agent"), _THOUGHT_TAGS["agent"])
+        ts = (it.get("ts") or "")[-8:]   # HH:MM:SS
+        rows.append(
+            f"<div class=th><span class=th-ts>{html.escape(ts)}</span>"
+            f"<span class=th-icon style='color:{color}'>{icon}</span>"
+            f"<span class=th-text>{html.escape(it.get('text', ''))}</span></div>"
+        )
+    return (f"<section class='panel glass'><h3>💭 Agent 思考即時流 "
+            f"<span class=muted style='font-size:11px;font-weight:400'>第一人稱 · 最近 12 條</span></h3>"
+            f"<div class=thoughts>{''.join(reversed(rows))}</div></section>")
+
+
 def _latest_media_row(rows):
     for r in reversed(rows):
         urls = (r.get("media_artifacts") or {}).get("urls") or {}
@@ -564,6 +603,7 @@ class H(BaseHTTPRequestHandler):
         m = _efficiency_metrics()
         health = _health_now()
         command_center = _render_command_center(rows, health)
+        thoughts_panel = _render_thoughts()
         current_incident = _render_current_incident(rows)
         status_html = (_health_dots(health)
                        + "<span class=muted>7×24 · 零人工 · 每 5s 自動刷新</span>")
@@ -600,6 +640,7 @@ class H(BaseHTTPRequestHandler):
   <div class=status>{status_html}</div>
 </header>
 {command_center}
+{thoughts_panel}
 {current_incident}
 <div class=tiles>{tiles}</div>
 <section class='panel glass'><h3>⚡ 級聯效率 <span class=muted style='font-size:11px;font-weight:400'>便宜感知連續掃,只有出事才喚醒 Nemotron</span></h3>

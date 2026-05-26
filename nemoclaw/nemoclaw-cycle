@@ -4,6 +4,8 @@ sweep → 挑選 → Nemotron 確認分級 → nemoclaw-act 政策閘(唯一對�
 import os, sys, json, time, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import register_channels, sweep, orchestrator, act, nemoclaw_triage
+import curiosity as _curiosity
+import thoughts as _thoughts
 
 NEMOCLAW_DIR = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.normpath(os.path.join(NEMOCLAW_DIR, "..", "tools"))
@@ -54,7 +56,18 @@ def main():
     triage_fn = None
     if os.environ.get("NEMOCLAW_TRIAGE", "1") == "1":
         triage_fn = lambda et, desc, ev: nemoclaw_triage.triage(et, desc, ev)
-    result = orchestrator.run_cycle(chans, sweep.sweep_channels, analyze_fn, act_fn,
+    audit_p = os.environ.get("NEMOCLAW_AUDIT_PATH")
+    def sweep_with_curiosity(channels):
+        cands = sweep.sweep_channels(channels)
+        pick = _curiosity.stale_pick(channels, audit_p)
+        if pick:
+            ch, idle_min = pick
+            _thoughts.record(
+                f"ch{ch['id']}({ch.get('name','')}) 已 {idle_min} 分沒巡——我主動去看看",
+                source="curiosity")
+            cands.append(_curiosity.curiosity_candidate(ch))
+        return cands
+    result = orchestrator.run_cycle(chans, sweep_with_curiosity, analyze_fn, act_fn,
                                     max_n=max_n, exclude=exclude, triage_fn=triage_fn)
     summary = {
         "candidates": result["candidates"],
