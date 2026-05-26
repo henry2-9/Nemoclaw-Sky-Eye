@@ -3,18 +3,32 @@
 import os, sys
 import yaml
 
-def load_channels(yaml_path):
+def _load_one(yaml_path):
+    if not yaml_path or not os.path.exists(yaml_path):
+        return {"channels": []}
     with open(yaml_path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+        return yaml.safe_load(f) or {"channels": []}
+
+
+def load_channels(yaml_path):
+    """讀主 yaml,並合併同目錄下 `discovered.yaml`(若存在)——
+    讓 agent 自主探索新增的地標下一輪自動進入巡檢。"""
+    data = _load_one(yaml_path)
     vdir = os.path.expandvars(os.path.expanduser(data.get("video_dir", "")))
-    out = []
-    for c in data["channels"]:
+    out, seen_ids = [], set()
+    for c in data.get("channels", []) or []:
         c = dict(c)
-        if c.get("url"):                       # live 串流 channel(世界攝影機)
+        if c.get("url"):
             c["path"] = os.path.expandvars(c["url"])
-        else:                                  # 本地檔 channel
+        else:
             c["path"] = os.path.abspath(os.path.join(vdir, c["file"]))
-        out.append(c)
+        out.append(c); seen_ids.add(c["id"])
+    discovered_path = os.path.join(os.path.dirname(os.path.abspath(yaml_path)), "discovered.yaml")
+    for c in _load_one(discovered_path).get("channels", []) or []:
+        if c.get("id") in seen_ids:
+            continue
+        c = dict(c); c["path"] = os.path.expandvars(c.get("url", ""))
+        out.append(c); seen_ids.add(c["id"])
     return out
 
 def _add_stream_channel(db, name, url, channel_id, location="NemoClaw Sentinel"):
