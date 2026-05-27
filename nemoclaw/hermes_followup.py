@@ -29,13 +29,14 @@ MAX_OUTPUT_CHARS = 800
 
 
 PLAN_SYSTEM = (
-    "你是 NemoClaw OpenShell 沙箱內的安全分析師。事件嚴重,你必須主動 curl 公共 API 交叉驗證。"
-    "已開通白名單(無 key、GET only):"
-    "(a) https://en.wikipedia.org/api/rest_v1/page/summary/<title>"
-    "(b) https://api.weather.gov/alerts/active?area=<US_STATE>"
-    "(c) https://nominatim.openstreetmap.org/search?q=<query>&format=json"
-    "(d) https://worldtimeapi.org/api/timezone/<Zone>"
-    "依事件選最相關 1-2 條 curl。火災→(b)+(a);其他→(a)+(c)。"
+    "你是 NemoClaw OpenShell 沙箱內的安全分析師。事件嚴重,你必須主動 curl **即時** API 交叉驗證。"
+    "已開通白名單(無 key、GET only、皆為 sub-hourly 即時資料):"
+    "(a) https://api.weather.gov/alerts/active?area=<US_STATE>  即時氣象警報"
+    "(b) https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson  過去 1h 地震"
+    "(c) https://opensky-network.org/api/states/all?lamin=&lomin=&lamax=&lomax=  該區域即時航班"
+    "(d) https://hn.algolia.com/api/v1/search_by_date?query=<keyword>&tags=story&hitsPerPage=3  即時討論"
+    "依事件選最相關 1-2 條。火災/煙→(a)+(d);爆炸/地震→(b)+(d);航空/低空異常→(c)+(d);"
+    "其他→(a)+(d)。**禁止** wikipedia / nominatim / 任何靜態查詢。"
     f"最多 {MAX_CMDS} 條。只輸出 JSON 一行,不要 markdown。"
 )
 
@@ -98,10 +99,14 @@ def _extract_commands(raw):
 _CURL_OK = re.compile(r"^https://[A-Za-z0-9.\-_:/?&=%@~+,;!*'()$]+$")
 
 
+_SHELL_CONTROL_TOKENS = {";", "&", "|", "&&", "||", ";;", "<", ">", ">>", "<<", "`"}
+
+
 def validate_cmd(cmd):
-    """嚴格 allowlist:首 token in ALLOWED_CMDS,curl 必須 https://,ping 必須 -c 1。
-    禁止 redirect / pipe / subshell / 環境變數注入。"""
-    if not cmd or any(ch in cmd for ch in [">", "<", "|", ";", "&", "`", "$("]):
+    """嚴格 allowlist:首 token in ALLOWED_CMDS,curl 必須 https://,ping 必須 -c≤3。
+    先 shlex.split,再對 token 級別查 shell control / subshell — 這樣引號內
+    的 `&`(URL query separator)不會誤觸 metachar 規則。"""
+    if not cmd:
         return False
     try:
         toks = shlex.split(cmd)
@@ -109,6 +114,11 @@ def validate_cmd(cmd):
         return False
     if not toks or toks[0] not in ALLOWED_CMDS:
         return False
+    for t in toks:
+        if t in _SHELL_CONTROL_TOKENS:
+            return False
+        if "`" in t or "$(" in t or t.startswith("$"):
+            return False
     if toks[0] == "curl":
         if "-X" in toks or "--data" in toks or "--upload-file" in toks:
             return False
@@ -164,17 +174,31 @@ def conclude(incident, results):
 
 
 def fallback_plan(incident):
-    """Hermes 規劃失敗時的兜底:依事件位置與類型挑 1-2 個 deterministic 爬蟲指令。
-    保證即使 LLM 端 502 / 超時,demo 仍能展示 sandbox 上網爬情報。"""
-    name = (incident.get("channel_name") or "").split("·")[0].strip()
-    title = name.replace(" ", "_") if name else "Times_Square"
-    cmds = [{"cmd": f"curl -s -m 8 https://en.wikipedia.org/api/rest_v1/page/summary/{title}",
-             "purpose": f"Wikipedia 摘要 {name or title}"}]
-    if (incident.get("event_type") or "") in ("fire_smoke", "abnormal_weather"):
-        cmds.append({"cmd": "curl -s -m 8 https://api.weather.gov/alerts/active?area=NY",
-                     "purpose": "美國 NWS 即時氣象警報"})
-    return {"commands": [c for c in cmds if validate_cmd(c["cmd"])][:MAX_CMDS],
-            "rationale": "Hermes 規劃失敗 → fallback recipe(wiki + weather)"}
+    """Hermes 規劃失敗時的兜底:依事件類型選 1-2 條 deterministic 即時情報指令。
+    全部都是 sub-hourly 即時資料,沒有靜態查詢。"""
+    et = incident.get("event_type") or ""
+    name = (incident.get("channel_name") or "").split("·")[0].strip() or "Times Square"
+    kw = name.replace(" ", "+")
+    hn = (f"curl -s -m 8 'https://hn.algolia.com/api/v1/search_by_date"
+          f"?query={kw}&tags=story&hitsPerPage=3'")
+    weather = "curl -s -m 8 https://api.weather.gov/alerts/active?area=NY"
+    quake = ("curl -s -m 8 https://earthquake.usgs.gov/earthquakes/feed/v1.0/"
+             "summary/all_hour.geojson")
+    flights = ("curl -s -m 8 'https://opensky-network.org/api/states/all"
+               "?lamin=40.7&lomin=-74.0&lamax=40.8&lomax=-73.9'")
+    if et in ("fire_smoke", "abnormal_weather"):
+        cmds = [weather, hn]
+        why = "weather.gov 即時警報 + HN 即時討論"
+    elif et in ("intrusion", "abnormal_crowd"):
+        cmds = [hn, weather]
+        why = "HN 即時討論 + weather.gov 即時警報"
+    else:
+        cmds = [quake, hn]
+        why = "USGS 即時地震 + HN 即時討論"
+    return {"commands": [{"cmd": c, "purpose": p}
+                         for c, p in zip(cmds, ["主要即時源", "輔助即時源"])
+                         if validate_cmd(c)][:MAX_CMDS],
+            "rationale": f"Hermes 規劃失敗 → fallback({why})"}
 
 
 def run(incident, plan_fn=None, exec_fn=None, conclude_fn=None):

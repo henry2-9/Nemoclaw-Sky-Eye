@@ -81,21 +81,29 @@ def test_run_returns_none_when_plan_and_fallback_both_empty(tmp_path, monkeypatc
     assert out2 is None
 
 
-def test_fallback_plan_for_fire_returns_wiki_and_weather(monkeypatch):
+def test_fallback_plan_for_fire_returns_weather_and_hn(monkeypatch):
     inc = {"channel_name": "Times Square · 紐約", "event_type": "fire_smoke"}
     p = hf.fallback_plan(inc)
     assert p is not None
     cmds = [c["cmd"] for c in p["commands"]]
-    assert any("en.wikipedia.org" in c and "Times_Square" in c for c in cmds)
     assert any("api.weather.gov" in c for c in cmds)
+    assert any("hn.algolia.com" in c and "Times+Square" in c for c in cmds)
+    assert not any("wikipedia" in c for c in cmds)
 
 
-def test_fallback_plan_for_non_fire_omits_weather(monkeypatch):
+def test_fallback_plan_for_intrusion_uses_hn_and_weather(monkeypatch):
     inc = {"channel_name": "Eiffel Tower · 巴黎", "event_type": "intrusion"}
     p = hf.fallback_plan(inc)
     cmds = [c["cmd"] for c in p["commands"]]
-    assert any("en.wikipedia.org" in c for c in cmds)
-    assert not any("api.weather.gov" in c for c in cmds)
+    assert any("hn.algolia.com" in c for c in cmds)
+    assert not any("wikipedia" in c for c in cmds)
+
+
+def test_fallback_plan_for_unknown_uses_usgs(monkeypatch):
+    inc = {"channel_name": "Niagara Falls", "event_type": "abnormal_other"}
+    p = hf.fallback_plan(inc)
+    cmds = [c["cmd"] for c in p["commands"]]
+    assert any("earthquake.usgs.gov" in c for c in cmds)
 
 
 def test_run_uses_fallback_when_plan_returns_none(tmp_path, monkeypatch):
@@ -113,25 +121,25 @@ def test_run_uses_fallback_when_plan_returns_none(tmp_path, monkeypatch):
                  conclude_fn=lambda i, r: "fallback ok")
     assert out is not None
     assert out["plan_source"] == "fallback-recipe"
-    assert any("Times_Square" in c for c in calls)
+    assert any("api.weather.gov" in c for c in calls)
 
 
 def test_extract_commands_handles_truncated_json():
-    truncated = ('{"commands":[{"cmd":"curl -s https://en.wikipedia.org/api/rest_v1/page/summary/X",'
-                 '"purpose":"wiki"},{"cmd":"curl -s -m 5 https://api.weather.gov/alerts/active?area=NY",'
-                 '"purpose":"weather"},{"rationale":"..."}')
+    truncated = ('{"commands":[{"cmd":"curl -s -m 5 https://api.weather.gov/alerts/active?area=NY",'
+                 '"purpose":"weather"},{"cmd":"curl -s https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson",'
+                 '"purpose":"quake"},{"rationale":"..."}')
     cmds = hf._extract_commands(truncated)
     assert len(cmds) == 2
-    assert "en.wikipedia.org" in cmds[0]["cmd"]
-    assert "api.weather.gov" in cmds[1]["cmd"]
+    assert "api.weather.gov" in cmds[0]["cmd"]
+    assert "earthquake.usgs.gov" in cmds[1]["cmd"]
 
 
 def test_extract_commands_drops_invalid_cmds():
     raw = ('{"commands":[{"cmd":"rm -rf /","purpose":"bad"},'
-           '{"cmd":"curl -s https://en.wikipedia.org/api/rest_v1/page/summary/X","purpose":"ok"}]}')
+           '{"cmd":"curl -s https://api.weather.gov/alerts/active?area=NY","purpose":"ok"}]}')
     cmds = hf._extract_commands(raw)
     assert len(cmds) == 1
-    assert "en.wikipedia.org" in cmds[0]["cmd"]
+    assert "api.weather.gov" in cmds[0]["cmd"]
 
 
 def test_run_filters_invalid_cmds_from_plan(tmp_path, monkeypatch):
