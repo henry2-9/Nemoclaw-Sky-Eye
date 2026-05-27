@@ -24,8 +24,8 @@ SANDBOX_NAME = os.environ.get("NEMOCLAW_SANDBOX_NAME", "sentinel")
 ALLOWED_CMDS = {"date", "uname", "echo", "curl", "dig", "host", "jq", "cat", "ls",
                 "wc", "head", "tail", "grep", "ping"}
 PER_CMD_TIMEOUT = 15
-MAX_CMDS = 2
-MAX_OUTPUT_CHARS = 800
+MAX_CMDS = 3
+MAX_OUTPUT_CHARS = 600
 
 
 PLAN_SYSTEM = (
@@ -41,9 +41,14 @@ PLAN_SYSTEM = (
 )
 
 CONCLUDE_SYSTEM = (
-    "你是 NemoClaw OpenShell 內的分析師。剛才你跑了幾個 read-only 指令做交叉驗證,"
-    "請根據 stdout 結果,以繁體中文一段(≤120 字)寫結論:本次事件「可能是真的/可能是誤報/"
-    "需更多證據」,並給出一句下一步建議。只輸出純文字,不用 JSON。"
+    "你是 NemoClaw OpenShell 內的分析師。剛才你跑了多個獨立來源的 read-only 指令做交叉驗證。"
+    "請以繁體中文嚴格按此格式回答(每行一個項目,不要 JSON、不要 markdown):\n"
+    "來源1 [<簡名>]: 證實|否認|無訊號 · <一句根據,≤30 字>\n"
+    "來源2 [<簡名>]: 證實|否認|無訊號 · <根據>\n"
+    "來源3 [<簡名>]: 證實|否認|無訊號 · <根據>\n"
+    "綜合判斷: 真實|誤報|需更多證據 · <一句理由>\n"
+    "建議: <下一步具體動作>\n"
+    "規則:每行 ≤60 字。簡名用 weather.gov / HN / USGS / OpenSky 等。"
 )
 
 
@@ -160,51 +165,63 @@ def exec_in_sandbox(cmd, sandbox=None, timeout=PER_CMD_TIMEOUT):
 
 
 def conclude(incident, results):
-    """把 stdout 結果餵 Hermes,寫一段繁中結論。"""
-    pairs = "\n".join(f"$ {r['cmd']}\n[purpose: {r['purpose']}]\n{r['stdout'][:300]}"
-                      for r in results)
+    """把多個獨立來源 stdout 餵 Hermes,寫多源 verdict 融合結論。"""
+    pairs = "\n".join(
+        f"[來源{i+1} · {r['purpose']}]\n{(r['stdout'] or '<empty>')[:280]}"
+        for i, r in enumerate(results))
     user = (f"事件:[ch{incident.get('channel')} {incident.get('event_type')} "
             f"severity={incident.get('severity')}]\n"
-            f"描述:{incident.get('summary','')}\n\n"
-            f"二次調查指令與輸出:\n{pairs}")
+            f"描述:{(incident.get('summary') or '')[:150]}\n\n"
+            f"多源獨立查證輸出:\n{pairs}\n\n"
+            f"嚴格按 system 指定格式回答。")
     try:
-        return _hermes_chat(CONCLUDE_SYSTEM, user, max_tokens=250, timeout=60)[:400]
+        return _hermes_chat(CONCLUDE_SYSTEM, user, max_tokens=400, timeout=70)[:700]
     except Exception:
         return None
 
 
-def fallback_plan(incident):
-    """Hermes 規劃失敗時的兜底:依事件類型選 1-2 條 deterministic 即時情報指令。
-    全部都是 sub-hourly 即時資料,沒有靜態查詢。"""
+def multi_source_recipe(incident):
+    """**固定 3 個獨立來源**做交叉驗證——政府 + 網友 + 科學/航空儀器。
+    不讓 Hermes 自選來源(因為 LLM 規劃會偏向 1-2 條同類);3 條獨立來源
+    才有真正的交叉驗證價值,讓 conclude 階段能寫「證實/否認/無訊號」逐源 verdict。"""
     et = incident.get("event_type") or ""
     name = (incident.get("channel_name") or "").split("·")[0].strip() or "Times Square"
     kw = name.replace(" ", "+")
+    weather = ("curl -s -m 8 https://api.weather.gov/alerts/active?area=NY",
+               "weather.gov · 美國政府即時氣象警報")
     hn = (f"curl -s -m 8 'https://hn.algolia.com/api/v1/search_by_date"
-          f"?query={kw}&tags=story&hitsPerPage=3'")
-    weather = "curl -s -m 8 https://api.weather.gov/alerts/active?area=NY"
+          f"?query={kw}&tags=story&hitsPerPage=3'",
+          f"HN · 即時討論「{name}」")
     quake = ("curl -s -m 8 https://earthquake.usgs.gov/earthquakes/feed/v1.0/"
-             "summary/all_hour.geojson")
+             "summary/all_hour.geojson",
+             "USGS · 過去 1h 全球地震")
     flights = ("curl -s -m 8 'https://opensky-network.org/api/states/all"
-               "?lamin=40.7&lomin=-74.0&lamax=40.8&lomax=-73.9'")
+               "?lamin=40.7&lomin=-74.0&lamax=40.8&lomax=-73.9'",
+               "OpenSky · NYC 區即時航班")
     if et in ("fire_smoke", "abnormal_weather"):
-        cmds = [weather, hn]
-        why = "weather.gov 即時警報 + HN 即時討論"
+        triplet = [weather, hn, quake]
+        why = "政府氣象 + 網友討論 + 地震排除"
     elif et in ("intrusion", "abnormal_crowd"):
-        cmds = [hn, weather]
-        why = "HN 即時討論 + weather.gov 即時警報"
+        triplet = [hn, weather, flights]
+        why = "網友討論 + 政府氣象 + 航空異常"
     else:
-        cmds = [quake, hn]
-        why = "USGS 即時地震 + HN 即時討論"
-    return {"commands": [{"cmd": c, "purpose": p}
-                         for c, p in zip(cmds, ["主要即時源", "輔助即時源"])
+        triplet = [weather, hn, quake]
+        why = "政府氣象 + 網友討論 + 地震排除"
+    return {"commands": [{"cmd": c, "purpose": p} for c, p in triplet
                          if validate_cmd(c)][:MAX_CMDS],
-            "rationale": f"Hermes 規劃失敗 → fallback({why})"}
+            "rationale": f"三源獨立交叉驗證({why})"}
+
+
+def fallback_plan(incident):
+    """Hermes 規劃完全失敗時的兜底——等同於 multi_source_recipe。"""
+    return multi_source_recipe(incident)
 
 
 def run(incident, plan_fn=None, exec_fn=None, conclude_fn=None):
-    """主入口:plan → exec → conclude。Hermes 規劃失敗自動 fallback 到 deterministic
-    recipes,確保嚴重事件一定有交叉驗證證據。plan_fn/exec_fn/conclude_fn 可注入測試。"""
-    plan_fn = plan_fn or plan
+    """主入口:plan → exec → conclude。預設用 multi_source_recipe 跑固定 3 個獨立
+    來源(政府+網友+科學儀器),Hermes 在 conclude 階段做交叉驗證融合。
+    傳 plan_fn 可注入測試或讓 Hermes 自主規劃(失敗時 fallback 回 recipe)。"""
+    plan_fn = plan_fn or multi_source_recipe
     exec_fn = exec_fn or exec_in_sandbox
     conclude_fn = conclude_fn or conclude
     t0 = time.time()
@@ -240,7 +257,8 @@ def run(incident, plan_fn=None, exec_fn=None, conclude_fn=None):
         "ts": time.time(),
         "ts_iso": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "governed_by": "nemoclaw-openshell-sandbox",
-        "plan_source": "fallback-recipe" if used_fallback else "hermes-autonomous",
+        "plan_source": "fallback-recipe" if used_fallback else (
+            "hermes-autonomous" if plan_fn is plan else "multi-source-recipe"),
     }
     _append_jsonl(record)
     try:

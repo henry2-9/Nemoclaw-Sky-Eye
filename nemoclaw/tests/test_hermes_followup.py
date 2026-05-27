@@ -81,29 +81,45 @@ def test_run_returns_none_when_plan_and_fallback_both_empty(tmp_path, monkeypatc
     assert out2 is None
 
 
-def test_fallback_plan_for_fire_returns_weather_and_hn(monkeypatch):
+def test_multi_source_recipe_fire_returns_three_independent_sources():
     inc = {"channel_name": "Times Square · 紐約", "event_type": "fire_smoke"}
-    p = hf.fallback_plan(inc)
+    p = hf.multi_source_recipe(inc)
     assert p is not None
+    assert len(p["commands"]) == 3
     cmds = [c["cmd"] for c in p["commands"]]
     assert any("api.weather.gov" in c for c in cmds)
     assert any("hn.algolia.com" in c and "Times+Square" in c for c in cmds)
-    assert not any("wikipedia" in c for c in cmds)
-
-
-def test_fallback_plan_for_intrusion_uses_hn_and_weather(monkeypatch):
-    inc = {"channel_name": "Eiffel Tower · 巴黎", "event_type": "intrusion"}
-    p = hf.fallback_plan(inc)
-    cmds = [c["cmd"] for c in p["commands"]]
-    assert any("hn.algolia.com" in c for c in cmds)
-    assert not any("wikipedia" in c for c in cmds)
-
-
-def test_fallback_plan_for_unknown_uses_usgs(monkeypatch):
-    inc = {"channel_name": "Niagara Falls", "event_type": "abnormal_other"}
-    p = hf.fallback_plan(inc)
-    cmds = [c["cmd"] for c in p["commands"]]
     assert any("earthquake.usgs.gov" in c for c in cmds)
+    assert not any("wikipedia" in c for c in cmds)
+
+
+def test_multi_source_recipe_intrusion_uses_flights_instead_of_quake():
+    inc = {"channel_name": "Eiffel Tower · 巴黎", "event_type": "intrusion"}
+    p = hf.multi_source_recipe(inc)
+    cmds = [c["cmd"] for c in p["commands"]]
+    assert len(p["commands"]) == 3
+    assert any("hn.algolia.com" in c for c in cmds)
+    assert any("opensky-network.org" in c for c in cmds)
+
+
+def test_run_default_uses_multi_source_recipe(tmp_path, monkeypatch):
+    monkeypatch.setenv("NEMOCLAW_FOLLOWUPS_PATH", str(tmp_path / "followups.jsonl"))
+    calls = []
+
+    def fake_exec(cmd):
+        calls.append(cmd)
+        return ("{}", "", 0, 10)
+
+    out = hf.run({"trace_id": "t", "channel": "201",
+                  "channel_name": "Times Square · 紐約",
+                  "event_type": "fire_smoke", "severity": "high"},
+                 exec_fn=fake_exec, conclude_fn=lambda i, r: "")
+    assert out is not None
+    assert out["plan_source"] == "multi-source-recipe"
+    assert len(calls) == 3
+    assert sum(1 for c in calls if "api.weather.gov" in c) == 1
+    assert sum(1 for c in calls if "hn.algolia.com" in c) == 1
+    assert sum(1 for c in calls if "earthquake.usgs.gov" in c) == 1
 
 
 def test_run_uses_fallback_when_plan_returns_none(tmp_path, monkeypatch):
@@ -122,6 +138,7 @@ def test_run_uses_fallback_when_plan_returns_none(tmp_path, monkeypatch):
     assert out is not None
     assert out["plan_source"] == "fallback-recipe"
     assert any("api.weather.gov" in c for c in calls)
+    assert len(calls) == 3
 
 
 def test_extract_commands_handles_truncated_json():

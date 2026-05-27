@@ -271,6 +271,16 @@ details.audit-more table{font-size:12.5px}
 .fu-foot .gov{color:#67e8f9}
 .fu-foot .plan-auto{color:#86efac;background:rgba(34,197,94,.1);padding:2px 7px;border-radius:6px}
 .fu-foot .plan-fallback{color:#fbbf24;background:rgba(245,158,11,.1);padding:2px 7px;border-radius:6px}
+.fu-foot .plan-multi{color:#c4b5fd;background:rgba(139,92,246,.1);padding:2px 7px;border-radius:6px}
+.fu-verdict{margin:8px 0;background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px}
+.fu-verdict .vr{font-size:12.5px;line-height:1.65;padding:2px 0}
+.fu-verdict .vr-confirm{color:#86efac}
+.fu-verdict .vr-refute{color:#fca5a5}
+.fu-verdict .vr-nosig{color:#9aa3c7}
+.fu-verdict .vr-final{color:#fed7aa;font-weight:600;border-top:1px solid rgba(255,255,255,.08);
+  margin-top:4px;padding-top:6px}
+.fu-verdict .vr-advice{color:#a5f3fc}
+.fu-verdict .vr-misc{color:#cbd5e1}
 """
 
 _BADGE_CLS = {"ALLOW": "b-allow", "BLOCK": "b-block", "DEDUP": "b-dedup", "ABSTAIN": "b-abstain"}
@@ -651,6 +661,37 @@ def _render_correlation():
             f"5min 窗 · ≥2 路同類事件升級</span></h3>{body}</section>")
 
 
+_VERDICT_ICON = {"證實": ("✅", "confirm"), "否認": ("❌", "refute"),
+                 "無訊號": ("⚪", "nosig")}
+
+
+def _render_verdict_lines(text):
+    """把 Hermes 結論的「來源N [...]: 證實|否認|無訊號 · ...」逐行 parse 並上 icon。
+    無法 parse 的行原樣印,確保即使 Hermes 偏離格式也不會掉訊息。"""
+    if not text:
+        return "<div class=empty>(無結論)</div>"
+    out_rows = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        verdict = None
+        for k in _VERDICT_ICON:
+            if k in line[:30]:
+                verdict = k
+                break
+        if verdict and "來源" in line[:6]:
+            icon, cls = _VERDICT_ICON[verdict]
+            out_rows.append(f"<div class='vr vr-{cls}'>{icon} {html.escape(line)}</div>")
+        elif line.startswith("綜合判斷"):
+            out_rows.append(f"<div class='vr vr-final'>🧠 {html.escape(line)}</div>")
+        elif line.startswith("建議"):
+            out_rows.append(f"<div class='vr vr-advice'>📋 {html.escape(line)}</div>")
+        else:
+            out_rows.append(f"<div class='vr vr-misc'>{html.escape(line)}</div>")
+    return "".join(out_rows)
+
+
 def _render_followups():
     if not _followup:
         return ""
@@ -663,27 +704,31 @@ def _render_followups():
             ts = (f.get("ts_iso") or "")[-8:]
             elapsed = f.get("elapsed_ms", 0)
             cmds_html = ""
-            for c in (f.get("commands") or [])[:2]:
+            for c in (f.get("commands") or [])[:3]:
                 stdout = (c.get("stdout") or "").strip()[:300]
                 cmds_html += (
                     f"<div class=c>$ {html.escape(c.get('cmd',''))}</div>"
-                    f"<div class=p># {html.escape(c.get('purpose',''))}</div>"
+                    f"<div class=p># {html.escape(c.get('purpose',''))} · rc={c.get('rc')} · {c.get('elapsed_ms')}ms</div>"
                     f"<div class=o>{html.escape(stdout) or '<span class=muted>(empty)</span>'}</div>")
-            plan_src = f.get("plan_source", "hermes-autonomous")
-            src_badge = ("<span class=plan-auto>🧠 Hermes 自主規劃</span>"
-                         if plan_src == "hermes-autonomous"
-                         else "<span class=plan-fallback>📜 deterministic fallback</span>")
+            plan_src = f.get("plan_source", "multi-source-recipe")
+            src_badge_map = {
+                "multi-source-recipe": "<span class=plan-multi>🧩 3 源固定交叉驗證</span>",
+                "hermes-autonomous": "<span class=plan-auto>🧠 Hermes 自主規劃</span>",
+                "fallback-recipe": "<span class=plan-fallback>📜 fallback recipe</span>",
+            }
+            src_badge = src_badge_map.get(plan_src, src_badge_map["multi-source-recipe"])
             loc = f.get("channel_name") or f"ch{f.get('channel','')}"
+            verdict_html = _render_verdict_lines(f.get("conclusion") or "")
             cards.append(
                 f"<div class=fu-card>"
                 f"<div class=fu-head><span class=ch>🛰 {html.escape(loc)} · "
                 f"{html.escape(f.get('event_type',''))} "
                 f"({_sev_zh(f.get('severity'))})</span>"
                 f"<span class=muted style='font-size:11.5px'>{html.escape(ts)} · {elapsed}ms</span></div>"
-                f"<div class=fu-conc>{html.escape(f.get('conclusion') or '(無結論)')}</div>"
+                f"<div class=fu-verdict>{verdict_html}</div>"
                 f"<div class=fu-cmds>{cmds_html}</div>"
                 f"<div class=fu-foot>{src_badge}<span class=gov>🛡 OpenShell 沙箱治理</span>"
-                f"<span>· {len(f.get('commands') or [])} 條 read-only 指令 · 真上網爬公共 API</span></div>"
+                f"<span>· {len(f.get('commands') or [])} 個獨立來源 · 真上網爬公共 API</span></div>"
                 f"</div>")
         body = f"<div class=fu-grid>{''.join(cards)}</div>"
     return (f"<section class='panel glass'><h3>🛰 OpenShell 沙箱二次調查 "
