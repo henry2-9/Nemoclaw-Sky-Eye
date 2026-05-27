@@ -177,6 +177,7 @@ def investigate(candidate, analyze_fn, triage_fn=None, followup_fn=None):
     incident = {
         "trace_id": trace_id,
         "channel": str(candidate["channel"]),
+        "channel_name": candidate.get("channel_name"),
         "event_type": candidate["event_type"],
         "confidence": g["confidence"],
         "severity": g["severity"],

@@ -267,8 +267,10 @@ details.audit-more table{font-size:12.5px}
 .fu-cmds .c{color:#7dd3fc;margin-top:6px}.fu-cmds .c:first-child{margin-top:0}
 .fu-cmds .p{color:#94a3b8;font-size:11px;margin-left:14px}
 .fu-cmds .o{color:#d1d5db;margin-left:14px;white-space:pre-wrap;max-height:80px;overflow:auto}
-.fu-foot{display:flex;gap:10px;font-size:11px;color:#9aa3c7;margin-top:6px}
+.fu-foot{display:flex;gap:10px;font-size:11px;color:#9aa3c7;margin-top:6px;flex-wrap:wrap}
 .fu-foot .gov{color:#67e8f9}
+.fu-foot .plan-auto{color:#86efac;background:rgba(34,197,94,.1);padding:2px 7px;border-radius:6px}
+.fu-foot .plan-fallback{color:#fbbf24;background:rgba(245,158,11,.1);padding:2px 7px;border-radius:6px}
 """
 
 _BADGE_CLS = {"ALLOW": "b-allow", "BLOCK": "b-block", "DEDUP": "b-dedup", "ABSTAIN": "b-abstain"}
@@ -667,16 +669,21 @@ def _render_followups():
                     f"<div class=c>$ {html.escape(c.get('cmd',''))}</div>"
                     f"<div class=p># {html.escape(c.get('purpose',''))}</div>"
                     f"<div class=o>{html.escape(stdout) or '<span class=muted>(empty)</span>'}</div>")
+            plan_src = f.get("plan_source", "hermes-autonomous")
+            src_badge = ("<span class=plan-auto>🧠 Hermes 自主規劃</span>"
+                         if plan_src == "hermes-autonomous"
+                         else "<span class=plan-fallback>📜 deterministic fallback</span>")
+            loc = f.get("channel_name") or f"ch{f.get('channel','')}"
             cards.append(
                 f"<div class=fu-card>"
-                f"<div class=fu-head><span class=ch>🛰 ch{html.escape(str(f.get('channel','')))} · "
+                f"<div class=fu-head><span class=ch>🛰 {html.escape(loc)} · "
                 f"{html.escape(f.get('event_type',''))} "
                 f"({_sev_zh(f.get('severity'))})</span>"
                 f"<span class=muted style='font-size:11.5px'>{html.escape(ts)} · {elapsed}ms</span></div>"
                 f"<div class=fu-conc>{html.escape(f.get('conclusion') or '(無結論)')}</div>"
                 f"<div class=fu-cmds>{cmds_html}</div>"
-                f"<div class=fu-foot><span class=gov>🛡 OpenShell 沙箱治理</span>"
-                f"<span>· {len(f.get('commands') or [])} 條 read-only 指令 · allowlist 守住</span></div>"
+                f"<div class=fu-foot>{src_badge}<span class=gov>🛡 OpenShell 沙箱治理</span>"
+                f"<span>· {len(f.get('commands') or [])} 條 read-only 指令 · 真上網爬公共 API</span></div>"
                 f"</div>")
         body = f"<div class=fu-grid>{''.join(cards)}</div>"
     return (f"<section class='panel glass'><h3>🛰 OpenShell 沙箱二次調查 "

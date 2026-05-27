@@ -1,0 +1,50 @@
+# Sky Eye Recon — sandbox 爬蟲白名單。Hermes 在 OpenShell sandbox 內針對嚴重事件
+# 主動去公共 read-only API 做交叉驗證(wiki 地標背景 / 政府氣象 / 新聞 RSS /
+# OSM 反查座標)。只開 GET / RSS,維持 read-only 治理邊界。
+preset:
+  name: sky-eye-recon
+  description: "Sky Eye 跨來源情資爬蟲(Wikipedia / weather.gov / Google News RSS / OSM Nominatim / worldtimeapi)"
+
+network_policies:
+  sky-eye-recon:
+    name: sky-eye-recon
+    endpoints:
+      - host: en.wikipedia.org
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: "/**" }
+      - host: zh.wikipedia.org
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: "/**" }
+      - host: api.weather.gov
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: "/**" }
+      - host: news.google.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: "/rss/**" }
+      - host: nominatim.openstreetmap.org
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: "/**" }
+      - host: worldtimeapi.org
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: { method: GET, path: "/**" }
+    binaries:
+      - { path: /usr/bin/curl }
+      - { path: /usr/bin/wget }
