@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""自我維生 watchdog:探測核心服務(Nemotron / Falcon / NemoClaw)健康。
+"""健康監測 watchdog:探測核心服務(Nemotron / Falcon / NemoClaw)健康。
 
-供 dashboard 即時顯示與降級判斷。CLI 迴圈模式會把健康變化記入 health.jsonl,
-讓「服務掛了它自己察覺/降級/復原」可被看見(no human in the loop)。"""
+供 dashboard 即時顯示與降級判斷。CLI 模式會把健康變化記入 health.jsonl;
+服務重新可用時記錄 recovered 狀態，實際重啟由服務管理機制負責。"""
 import datetime
 import json
 import os
@@ -47,7 +47,7 @@ def health_log_path():
 
 
 def _record_transition(prev, cur, path=None):
-    """只在健康狀態改變時記一筆(降級/復原),避免洗檔。回傳是否有記。"""
+    """只在健康狀態改變時記一筆(degrade/recovered),避免洗檔。回傳是否有記。"""
     if prev == cur:
         return False
     path = path or health_log_path()

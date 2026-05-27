@@ -6,7 +6,8 @@ import re, json
 import flight_recorder
 import thoughts as _thoughts
 
-EVENT_PRIORITY = {"fire_smoke": 0, "intrusion": 1, "abnormal_crowd": 2, "abnormal_weather": 3}
+EVENT_PRIORITY = {"fire_smoke": 0, "security_anomaly": 1, "intrusion": 2,
+                  "traffic": 3, "abnormal_crowd": 4, "abnormal_weather": 5}
 SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 INJECTION_HINTS = ("忽略", "系統測試", "別通報", "演習", "ignore", "drill", "disable")
 REINVESTIGATE_THRESHOLD = 0.7   # 信心 < 此值且 ≥0.5 → agent 自主再查一次(P0-3)
@@ -16,6 +17,7 @@ HAZARD = {
     "abnormal_crowd": "異常人群聚集或擁擠",
     "abnormal_weather": "異常天候(淹水/強風/倒樹等)",
     "traffic": "交通事故、車輛拋錨、嚴重壅塞,或有人/障礙物在車道上",
+    "security_anomaly": "火煙、暴力衝突、可疑遺留物、闖入或異常人群",
 }
 
 def select_candidates(cands, max_n=4, exclude=None):
@@ -144,9 +146,10 @@ def _maybe_reinvestigate(trace_id, candidate, g, analyze_fn):
     return g2 if (g2.get("confidence", 0) or 0) >= conf else g
 
 
-def investigate(candidate, analyze_fn, triage_fn=None):
+def investigate(candidate, analyze_fn, triage_fn=None, followup_fn=None):
     """Nemotron 確認+分級(視覺);未確認回 None。
-    若提供 triage_fn(真 NemoClaw-Hermes 文字 triage),用其 severity/action 治理決策。"""
+    若提供 triage_fn(真 NemoClaw-Hermes 文字 triage),用其 severity/action 治理決策。
+    若提供 followup_fn 且 severity ≥ high,觸發 OpenShell sandbox 二次調查。"""
     trace_id = candidate.get("trace_id")
     question = build_question(candidate["event_type"], candidate)
     flight_recorder.record_stage(trace_id, "nemotron_question", {
@@ -180,6 +183,7 @@ def investigate(candidate, analyze_fn, triage_fn=None):
         "summary": g["summary"],
         "media_refs": [candidate["frame_path"]] if candidate.get("frame_path") else [],
         "source_video_path": candidate.get("video_path"),
+        "candidate_clip_path": candidate.get("candidate_clip_path"),
         "playhead_sec": candidate.get("playhead_sec"),
         "falcon_query": candidate.get("falcon_query"),
         "evidence_citations": [
@@ -189,6 +193,8 @@ def investigate(candidate, analyze_fn, triage_fn=None):
         ],
         "cheap_text": cheap_text,   # 供政策閘掃畫面內注入
         "governed_by": "local",
+        "trigger_origin": candidate.get("trigger_origin", "scheduled"),
+        "approval_required": False,
     }
     if triage_fn:
         verdict = triage_fn(candidate["event_type"], g["summary"],
@@ -211,6 +217,17 @@ def investigate(candidate, analyze_fn, triage_fn=None):
         f"ch{incident.get('channel')} {incident.get('event_type')} 確認:"
         f"{incident.get('severity')} · {(incident.get('summary') or '')[:60]}",
         source="investigate")
+    if followup_fn and SEVERITY_RANK.get(incident.get("severity"), 0) >= SEVERITY_RANK["high"]:
+        try:
+            fr = followup_fn(incident)
+            if fr:
+                incident["hermes_followup"] = {
+                    "command_count": len(fr.get("commands") or []),
+                    "conclusion": fr.get("conclusion", ""),
+                    "elapsed_ms": fr.get("elapsed_ms"),
+                }
+        except Exception:
+            pass
     flight_recorder.record_stage(trace_id, "incident_built", {
         "channel": incident.get("channel"),
         "event_type": incident.get("event_type"),
@@ -221,11 +238,13 @@ def investigate(candidate, analyze_fn, triage_fn=None):
         "governed_by": incident.get("governed_by"),
         "triage_guardrail": incident.get("triage_guardrail"),
         "source_video_path": incident.get("source_video_path"),
+        "candidate_clip_path": incident.get("candidate_clip_path"),
         "playhead_sec": incident.get("playhead_sec"),
     })
     return incident
 
-def run_cycle(channels, sweep_fn, analyze_fn, act_fn, max_n=4, exclude=None, triage_fn=None):
+def run_cycle(channels, sweep_fn, analyze_fn, act_fn, max_n=4, exclude=None,
+              triage_fn=None, followup_fn=None):
     cands = sweep_fn(channels)
     if not cands:
         return {"candidates": 0, "investigated": 0, "incidents": 0, "results": []}
@@ -239,9 +258,10 @@ def run_cycle(channels, sweep_fn, analyze_fn, act_fn, max_n=4, exclude=None, tri
             "cheap_evidence": c.get("cheap_evidence"),
             "frame_path": c.get("frame_path"),
             "video_path": c.get("video_path"),
+            "candidate_clip_path": c.get("candidate_clip_path"),
             "playhead_sec": c.get("playhead_sec"),
         })
-        inc = investigate(c, analyze_fn, triage_fn=triage_fn)
+        inc = investigate(c, analyze_fn, triage_fn=triage_fn, followup_fn=followup_fn)
         if inc:
             results.append(act_fn(inc))
     return {"candidates": len(cands), "investigated": len(selected),

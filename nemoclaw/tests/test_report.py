@@ -15,6 +15,7 @@ def test_generate_incident_report_writes_readable_md(tmp_path):
     }
     dec = {"decision": "ALLOW", "actions": ["log", "notify", "escalate", "report"],
            "injection_detected": True, "governed_by": "nemoclaw-openshell",
+           "trigger_origin": "demo_manual", "approval_required": False,
            "media_artifacts": {"urls": {"clip": "http://d/clip.mp4"}}}
     path = report.generate_incident_report(inc, dec, out_dir=str(tmp_path))
     assert os.path.exists(path)
@@ -25,4 +26,6 @@ def test_generate_incident_report_writes_readable_md(tmp_path):
     assert "注入防禦" in body              # injection 入報
     assert "confirmed fire" in body        # 證據引用
     assert "http://d/clip.mp4" in body     # 媒體連結
-    assert "無人工介入" in body
+    assert "處置無人工核准" in body
+    assert "觸發來源:demo_manual" in body
+    assert "人工核准流程:不需要" in body

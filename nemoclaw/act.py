@@ -6,6 +6,15 @@ import flight_recorder
 import media
 import thoughts as _thoughts
 
+EVENT_TYPE_IDS = {
+    "fire_smoke": 4,
+    "abnormal_crowd": 5,
+    "abnormal_weather": 6,
+    "intrusion": 7,
+    "traffic": 8,
+    "security_anomaly": 9,
+}
+
 def load_policy(path=None):
     path = path or os.path.join(os.path.dirname(__file__), "policy.yaml")
     with open(path, encoding="utf-8") as f:
@@ -28,6 +37,32 @@ def _notification_text(incident, decision):
         text += f"\nFalcon標記圖: {urls['falcon_annotated']}"
     return text
 
+
+def _persist_event(incident, decision):
+    """Persist confirmed incidents to the selected event store when enabled."""
+    if os.environ.get("NEMOCLAW_EVENT_STORE_ENABLED", "0") != "1":
+        return None
+    import db_factory
+    artifacts = decision.get("media_artifacts") or {}
+    return db_factory.event_db().insert_event({
+        "event_id": incident.get("trace_id"),
+        "camera_id": incident.get("channel"),
+        "type_id": EVENT_TYPE_IDS.get(incident.get("event_type")),
+        "description": incident.get("summary", ""),
+        "image_path": artifacts.get("frame_path"),
+        "clip_path": artifacts.get("clip_path"),
+        "event_time": datetime.datetime.fromtimestamp(decision["ts"]).isoformat(timespec="seconds"),
+        "metadata": {
+            "severity": incident.get("severity"),
+            "confidence": incident.get("confidence"),
+            "decision": decision.get("decision"),
+            "actions": decision.get("actions"),
+            "governed_by": decision.get("governed_by"),
+            "trigger_origin": decision.get("trigger_origin"),
+            "urls": artifacts.get("urls") or {},
+        },
+    })
+
 def run(incident, policy_path=None, recent=None, audit_path=None, now=None):
     pol = load_policy(policy_path)
     now = now or datetime.datetime.now()
@@ -40,6 +75,8 @@ def run(incident, policy_path=None, recent=None, audit_path=None, now=None):
     decision["severity"] = incident.get("severity")
     decision["summary"] = incident.get("summary", "")
     decision["governed_by"] = incident.get("governed_by", "local")   # local | nemoclaw-openshell
+    decision["trigger_origin"] = incident.get("trigger_origin", "scheduled")
+    decision["approval_required"] = bool(incident.get("approval_required", False))
     decision["redacted"] = False
     decision["notification_sent"] = False
     decision["media_artifacts"] = {}
@@ -82,6 +119,13 @@ def run(incident, policy_path=None, recent=None, audit_path=None, now=None):
                 decision["notification_sent"] = True
             except Exception as e:
                 decision["reasons"].append(f"notify failed: {e}")
+
+    decision["event_id"] = None
+    if allow:
+        try:
+            decision["event_id"] = _persist_event(incident, decision)
+        except Exception as e:
+            decision["reasons"].append(f"event persistence failed: {e}")
 
     audit.append(decision, jsonl_path=audit_path)
     flight_recorder.record_stage(decision.get("trace_id"), "policy_decision", decision)

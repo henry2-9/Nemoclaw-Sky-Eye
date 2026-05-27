@@ -233,7 +233,7 @@ def discover(max_new=3, vlm_fn=None, search_fn=None, validate_fn=None, score_fn=
     for s in scored[:max_new]:
         eid = _next_id()
         entry = {"id": eid, "name": f"{s['name'][:36]} · 自主發現",
-                 "url": s["url"], "event_type": "abnormal_crowd"}
+                 "url": s["url"], "event_type": "security_anomaly"}
         _register(entry)
         added.append(entry)
         _thoughts.record(

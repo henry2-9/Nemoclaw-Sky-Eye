@@ -10,6 +10,14 @@ def test_channel_add_stream_and_resolve():
     assert ch and ch["source_url"].endswith("camera=1") and ch["source_type"] == "stream"
     assert ("https://x/cam?camera=1", 101) in cs.get_stream_sources_with_channel_ids()
 
+def test_update_stream_channel_keeps_id_and_refreshes_source():
+    cs = s.ChannelStore()
+    cs.add_stream_channel("old", "https://old", 102, "demo")
+    cs.update_stream_channel(102, "new", "https://new", "sentinel")
+    ch = cs.get_channel_by_channel_id(102)
+    assert ch["channel_name"] == "new"
+    assert ch["source_url"] == "https://new"
+
 def test_channel_unique_name_and_id():
     cs = s.ChannelStore()
     cs.add_stream_channel("dup", "https://a", 301)

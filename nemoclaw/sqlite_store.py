@@ -71,6 +71,16 @@ class ChannelStore:
     def add_stream_channel(self, channel_name, url, channel_id=None, location=""):
         return self._add(channel_name, "stream", url, channel_id, location)
 
+    def update_stream_channel(self, channel_id, channel_name, url, location=""):
+        """Refresh a configured live source while preserving its channel id."""
+        with _conn() as c:
+            c.execute("""UPDATE channels
+                SET channel_name=?, source_type='stream', source_url=?, location=?,
+                    is_active=1, is_delete=0
+                WHERE channel_id=?""",
+                (channel_name, url, location, int(channel_id)))
+            c.commit()
+
     def get_stream_sources_with_channel_ids(self):
         with _conn() as c:
             return [(r["source_url"], r["channel_id"]) for r in

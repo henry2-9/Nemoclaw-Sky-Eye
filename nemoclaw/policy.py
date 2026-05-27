@@ -2,6 +2,8 @@
 """NemoClaw 政策閘純決策邏輯。evaluate() 回傳 decision dict。"""
 import re, datetime
 
+SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+
 def detect_injection(text, patterns):
     if not text:
         return []
@@ -38,12 +40,19 @@ def evaluate(incident, policy, recent, now=None):
             f"confidence {incident.get('confidence')} < {g['confidence_threshold']}"])
         return out
 
-    # ① 去重
+    # ① 去重:severity 升級不是重複事件;尤其 critical 不可被早先低嚴重度告警壓掉。
     win = g["dedup_window_seconds"]
     for r in recent:
         if (str(r.get("channel")) == str(incident.get("channel"))
                 and r.get("event_type") == incident.get("event_type")
                 and (now.timestamp() - r.get("ts", 0)) <= win):
+            incoming = SEVERITY_RANK.get(incident.get("severity"), 0)
+            previous = SEVERITY_RANK.get(r.get("severity"), -1)
+            if incoming > previous:
+                reasons.append(
+                    f"severity escalation bypassed dedup: {r.get('severity', 'unknown')}→{incident.get('severity')}")
+                hits.append("severity_escalation")
+                break
             out.update(decision="DEDUP", reasons=reasons + [f"duplicate within {win}s"])
             return out
 

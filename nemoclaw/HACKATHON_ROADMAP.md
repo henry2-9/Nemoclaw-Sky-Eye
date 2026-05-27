@@ -1,6 +1,6 @@
 # NemoClaw Sentinel Hackathon Roadmap
 
-> **⚠️ [歷史紀錄]** — 早期路線圖,P0/P1 多已完成。當前衝刺主線見 [`WIN_PLAN.md`](WIN_PLAN.md)(以「全自主、零人工」為核心的天眼版)。
+> **⚠️ [歷史紀錄]** — 早期路線圖。現行系統已採 live candidate trigger-onset clip 與 redacted artifact；完整 pre-event rolling buffer 仍屬後續強化項目。
 >
 > 目標：在送件前將 NemoClaw Sentinel 打磨成可穩定重現、可稽核、可證明長時間自主運作的安全監控 agent。
 >
@@ -40,7 +40,7 @@
 
 #### 問題
 
-`world_channels.yaml` 的公開攝影機來源是 live URL。現有 `media.py` 主要以本機檔案路徑切出 `clip.mp4`，因此真正 live 事件發生時，可能只能保留單張 frame，無法完整呈現事件前後脈絡。
+`world_channels.yaml` 的公開攝影機來源是 live URL。本段記錄早期缺口；現行 `media.py` 已可在 candidate 觸發時保存短片，但仍沒有事件發生前的 rolling buffer。
 
 #### 建議功能
 
@@ -155,7 +155,7 @@ README 宣稱 audit 可寫入 JSONL 與 MongoDB；送件前必須確保這項 pe
 
 ### 6. Attack Challenge Matrix ✅ 已完成(2026-05-25)
 
-> 實作:`attack_matrix.py` + `nemoclaw-attack-matrix` CLI + dashboard 「安全挑戰矩陣」面板 + 6 單元測試。5 種注入管道 **5/5 全數防禦**,跑在真實 `policy.evaluate` + `orchestrator._triage_severity` 上。
+> 實作:`attack_matrix.py` + `nemoclaw-attack-matrix` CLI + dashboard 「Guardrail 回歸測試矩陣」面板 + 單元測試。此矩陣把 5 類已解碼惡意文字送入真實 `policy.evaluate` + `orchestrator._triage_severity`;圖片/影音端到端證據由 `demo_attack_scene.sh` 提供。
 
 將單一 OCR prompt-injection 場景擴充為安全測試矩陣：
 
@@ -202,7 +202,7 @@ Falcon 標記圖片是展示的第一視覺證據；若標出大量不合理 smo
 
 ### Day 1：真實來源證據鏈
 
-1. 完成 live rolling buffer 與 live event clip 寫出。
+1. 已完成 live candidate trigger-onset clip 寫出；完整 pre-event rolling buffer 保留為後續強化。
 2. 將 clip 接入既有 trace page 與 notification URL。
 3. 加入斷線、無 clip、重啟情境測試。
 
@@ -222,7 +222,7 @@ Falcon 標記圖片是展示的第一視覺證據；若標出大量不合理 smo
 
 - [x] `demo_attack_scene.sh` 連續執行皆成功,且不依賴手動修正。(本 session 多次驗證 6 檢查全過)
 - [x] Incident trace 頁可播放 clip 並顯示 Falcon annotated frame。(P0.1)
-- [x] Live source 的事件可保存可播放的事件片段。(P0.1:live forward clip,verified)
+- [x] Live source 的候選觸發後可保存可播放的 redacted 證據片段。(trigger-onset clip)
 - [x] 公開分享的媒體皆為 redacted artifact。(P0.2:raw 403、對外只給 redacted)
 - [x] Notification policy、quiet hours、rate limit 與 README 描述一致。(P1.4/P1.5:全通知+高上限 backstop,文件已對齊)
 - [x] Audit persistence 宣稱可由實際資料驗證。(P1.5:JSONL audit/flight,重啟可查;MongoDB 標為選用)

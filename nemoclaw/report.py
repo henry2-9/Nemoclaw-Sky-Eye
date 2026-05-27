@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """自主事件報告:agent 確認事件後(政策路由含 'report')自動產出單一事件報告。
 
-無人核准、不查 DB——直接用手上的 incident + decision 產 Markdown 報告,
+處置無人工核准、不查 DB——直接用手上的 incident + decision 產 Markdown 報告,
 寫到該事件的 media 目錄。供「agent 會做(不只通知)」的自主閉環。"""
 import datetime
 import os
@@ -38,6 +38,8 @@ def generate_incident_report(incident, decision, out_dir=None):
         f"- 嚴重度:{sev or '—'}",
         f"- 信心:{incident.get('confidence', '—')}",
         f"- 治理:{decision.get('governed_by', '—')}",
+        f"- 觸發來源:{decision.get('trigger_origin', incident.get('trigger_origin', 'unknown'))}",
+        f"- 人工核准流程:{'需要' if decision.get('approval_required') else '不需要'}",
         f"- 決策:{decision.get('decision', '—')} · 動作:{', '.join(decision.get('actions') or []) or '—'}",
         "",
         "## 摘要",
@@ -53,7 +55,7 @@ def generate_incident_report(incident, decision, out_dir=None):
     if urls:
         lines += ["", "## 媒體"]
         lines += [f"- {k}:{urls[k]}" for k in ("clip", "falcon_annotated", "frame", "trace") if urls.get(k)]
-    lines += ["", "---", "*本報告由 NemoClaw Sentinel 自動產生,全程無人工介入。*"]
+    lines += ["", "---", "*本報告由 NemoClaw Sentinel 自動產生;事件處置無人工核准,觸發來源請見稽核紀錄。*"]
 
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")

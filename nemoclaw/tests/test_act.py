@@ -98,3 +98,24 @@ def test_notification_text_includes_media_links():
     assert "事件頁: http://dash/trace?trace_id=t1" in text
     assert "錄影切片: http://dash/media/t1/clip.mp4" in text
     assert "Falcon標記圖: http://dash/media/t1/falcon_annotated.jpg" in text
+
+
+def test_allow_persists_confirmed_incident_to_sqlite(monkeypatch):
+    monkeypatch.setenv("NEMOCLAW_MEDIA_ENABLED", "0")
+    monkeypatch.setenv("NEMOCLAW_NOTIFY_DISABLED", "1")
+    monkeypatch.setenv("NEMOCLAW_EVENT_STORE_ENABLED", "1")
+    monkeypatch.setenv("NEMOCLAW_DB_BACKEND", "sqlite")
+    inc = {"trace_id": "persist-1", "channel": "19", "event_type": "security_anomaly",
+           "confidence": 0.93, "severity": "medium", "summary": "遺留行李",
+           "trigger_origin": "scheduled",
+           "evidence_citations": [{"tool": "falcon", "finding": "bag"}]}
+
+    d = act.run(inc, policy_path=_policy_path(), recent=[],
+                now=datetime.datetime(2026, 5, 26, 12, 0))
+    import sqlite_store
+    row = sqlite_store.EventStore().get_event_by_id("persist-1")
+
+    assert d["decision"] == "ALLOW"
+    assert d["event_id"] == "persist-1"
+    assert row["type_id"] == 9
+    assert row["metadata"]["trigger_origin"] == "scheduled"

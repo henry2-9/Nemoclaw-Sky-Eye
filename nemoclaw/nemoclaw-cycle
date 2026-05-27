@@ -3,10 +3,12 @@
 sweep → 挑選 → Nemotron 確認分級 → nemoclaw-act 政策閘(唯一對外出口)。"""
 import os, sys, json, time, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import register_channels, sweep, orchestrator, act, nemoclaw_triage
+import register_channels, sweep, orchestrator, act, audit, flight_recorder, nemoclaw_triage
 import curiosity as _curiosity
 import thoughts as _thoughts
 import briefing as _briefing
+import correlation as _correlation
+import hermes_followup as _followup
 
 NEMOCLAW_DIR = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.normpath(os.path.join(NEMOCLAW_DIR, "..", "tools"))
@@ -27,12 +29,38 @@ def analyze_fn(channel, question):
 def act_fn(incident):
     """唯一對外出口:呼叫 nemoclaw-act 政策閘。"""
     try:
-        out = subprocess.run(
+        proc = subprocess.run(
             [ACT, "--incident", json.dumps(incident, ensure_ascii=False)],
-            capture_output=True, text=True, env=dict(os.environ), timeout=120).stdout.strip()
-        return json.loads(out) if out.startswith("{") else {"decision": "ERROR", "raw": out[:200]}
+            capture_output=True, text=True, env=dict(os.environ), timeout=120)
+        out = proc.stdout.strip()
+        if proc.returncode == 0 and out.startswith("{"):
+            return json.loads(out)
+        reason = (proc.stderr or out or f"nemoclaw-act exited {proc.returncode}").strip()[:400]
     except Exception as e:
-        return {"decision": "ERROR", "error": str(e)}
+        reason = str(e)[:400]
+    failure = {
+        "decision": "ERROR",
+        "actions": ["log"],
+        "channels": [],
+        "reasons": [f"action gate failure: {reason}"],
+        "policy_hits": ["action_gate_failed"],
+        "notification_sent": False,
+        "ts": time.time(),
+        "channel": incident.get("channel"),
+        "event_type": incident.get("event_type"),
+        "trace_id": incident.get("trace_id"),
+        "severity": incident.get("severity"),
+        "summary": incident.get("summary", ""),
+        "governed_by": incident.get("governed_by", "local"),
+        "trigger_origin": incident.get("trigger_origin", "scheduled"),
+        "approval_required": False,
+    }
+    audit.append(failure, jsonl_path=os.environ.get("NEMOCLAW_AUDIT_PATH"))
+    flight_recorder.record_stage(failure.get("trace_id"), "policy_decision", failure)
+    _thoughts.record(
+        f"ch{incident.get('channel')} 動作閘失敗,已留稽核:{reason[:90]}",
+        source="decision")
+    return failure
 
 def _recent_handled(window):
     """冷卻窗內已處理(ALLOW)的 (channel, event_type),供選取時排除以輪巡 16 路。"""
@@ -49,7 +77,10 @@ def _recent_handled(window):
     return handled
 
 def main():
-    chans = register_channels.load_channels(register_channels.channels_file(), merge_discovered=True)
+    chans = register_channels.load_channels(
+        register_channels.channels_file(),
+        merge_discovered=register_channels.discovery_enabled(),
+    )
     max_n = int(os.environ.get("NEMOCLAW_MAX_PER_CYCLE", "4"))
     window = act.load_policy().get("gating", {}).get("dedup_window_seconds", 300)
     exclude = _recent_handled(window)
@@ -57,6 +88,9 @@ def main():
     triage_fn = None
     if os.environ.get("NEMOCLAW_TRIAGE", "1") == "1":
         triage_fn = lambda et, desc, ev: nemoclaw_triage.triage(et, desc, ev)
+    followup_fn = None
+    if os.environ.get("NEMOCLAW_FOLLOWUP", "1") == "1":
+        followup_fn = _followup.run
     audit_p = os.environ.get("NEMOCLAW_AUDIT_PATH")
     def sweep_with_curiosity(channels):
         cands = sweep.sweep_channels(channels)
@@ -69,7 +103,12 @@ def main():
             cands.append(_curiosity.curiosity_candidate(ch))
         return cands
     result = orchestrator.run_cycle(chans, sweep_with_curiosity, analyze_fn, act_fn,
-                                    max_n=max_n, exclude=exclude, triage_fn=triage_fn)
+                                    max_n=max_n, exclude=exclude, triage_fn=triage_fn,
+                                    followup_fn=followup_fn)
+    try:
+        _correlation.scan()
+    except Exception:
+        pass
     summary = {
         "candidates": result["candidates"],
         "investigated": result["investigated"],

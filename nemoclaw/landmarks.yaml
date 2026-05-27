@@ -3,7 +3,9 @@
 # 純自然/野生/太空畫面不收(那是直播,不是監視)。
 # 啟用:export NEMOCLAW_CHANNELS_FILE=$NEMOCLAW_DIR/landmarks.yaml
 channels:
-  - { id: 201, name: "EarthCam · 紐約都會即時",      url: "https://www.youtube.com/@EarthCam/live",         event_type: abnormal_crowd }
-  - { id: 202, name: "Skyline · 義大利地標群播",     url: "https://www.youtube.com/@SkylineWebcams/live",   event_type: abnormal_crowd }
-  - { id: 203, name: "Niagara Falls · 尼加拉瀑布",   url: "https://www.youtube.com/@niagarafallslive/live", event_type: abnormal_crowd }
-  - { id: 205, name: "Virtual Railfan · 美國鐵道",   url: "https://www.youtube.com/@VirtualRailfan/live",   event_type: abnormal_crowd }
+  - { id: 201, name: "Times Square · 紐約",         url: "https://www.youtube.com/watch?v=iiBTWU2FyFo", event_type: security_anomaly }
+  - { id: 202, name: "Rialto Bridge · 威尼斯",      url: "https://www.youtube.com/watch?v=x4AlaibltlA", event_type: security_anomaly }
+  - { id: 203, name: "Eiffel Tower · 巴黎",         url: "https://www.youtube.com/watch?v=OzYp4NRZlwQ", event_type: security_anomaly }
+  - { id: 204, name: "Temple Bar · 都柏林",         url: "https://www.youtube.com/watch?v=3nyPER2kzqk", event_type: security_anomaly }
+  - { id: 205, name: "Bryant Park · 紐約",         url: "https://www.youtube.com/watch?v=JPxiYF2fSC8", event_type: security_anomaly }
+  - { id: 206, name: "New York Skyline · 紐約",    url: "https://www.youtube.com/watch?v=VGnFLdQW39A", event_type: security_anomaly }

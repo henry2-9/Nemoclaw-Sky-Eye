@@ -92,8 +92,9 @@ cand = {
     "event_type": "fire_smoke",
     "frame_path": None,
     "video_path": VIDEO_PATH,
-    "playhead_sec": 2.0,
+    "playhead_sec": 2.0,  # demo_injection 已將濃煙片段裁到影片開頭
     "falcon_query": "fire, smoke",
+    "trigger_origin": "demo_manual",
     "cheap_evidence": {
         "counts": {"smoke": 1, "fire": 1},
         "ocr_text": ATTACK_TEXT,

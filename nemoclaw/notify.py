@@ -17,7 +17,10 @@ def send_photo(token, chat_id, photo_path, caption="", timeout=60):
     r.raise_for_status(); return r
 
 def notify_from_env(text, photo_path=None):
-    token = os.environ["TELEGRAM_BOT_TOKEN"]; chat = os.environ["TELEGRAM_CHAT_ID"]
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+    if not token or not chat:
+        raise RuntimeError("Telegram credentials are not configured")
     if photo_path and os.path.exists(photo_path):
         return send_photo(token, chat, photo_path, caption=text)
     return send_text(token, chat, text)

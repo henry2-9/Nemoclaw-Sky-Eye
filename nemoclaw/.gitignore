@@ -8,7 +8,10 @@ supervisor.log
 flight_recorder.jsonl
 attack_matrix.json
 media_events/
+wall_snapshots/
 .supervisor.pid
+.supervisor.lock
+active_channels_file
 __pycache__/
 *.pyc
 health.jsonl

@@ -99,6 +99,20 @@ def test_filter_by_type_alias():
     assert len(out["events"]) == 1 and out["events"][0]["event_id"] == "ev1"
 
 
+def test_live_gate_types_have_names_and_aliases():
+    es = _seed()
+    es.insert_event({"event_id": "road1", "Channel_id": 101, "Event_type_id": 8,
+                     "Description": "road hazard", "Event_time": "2026-05-25T11:00:00"})
+    es.insert_event({"event_id": "landmark1", "Channel_id": 201, "Event_type_id": 9,
+                     "Description": "abandoned bag", "Event_time": "2026-05-25T11:01:00"})
+
+    road = q.cmd_latest(_ns(type="traffic"))["events"]
+    landmark = q.cmd_latest(_ns(type="security_anomaly"))["events"]
+
+    assert road[0]["event_type_name"] == "交通異常"
+    assert landmark[0]["event_type_name"] == "公共安全異常"
+
+
 def test_media_scans_event_data(tmp_path):
     _seed()
     ed = tmp_path / "event_data"

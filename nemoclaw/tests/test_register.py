@@ -23,3 +23,49 @@ def test_register_calls_add_file_channel_for_each(monkeypatch):
     assert len(calls) == 16
     # 傳入的 channel_id 應與 yaml 一致
     assert [c[2] for c in calls] == [ch["id"] for ch in chans]
+
+
+def test_register_updates_existing_stream_source_when_supported():
+    calls = []
+
+    class FakeDB:
+        def get_channel_by_channel_id(self, cid):
+            return {"channel_id": cid}
+
+        def update_stream_channel(self, cid, name, url, location):
+            calls.append((cid, name, url, location))
+
+    rc.register([{"id": 201, "name": "Times Square", "url": "https://x", "path": "https://x"}], FakeDB())
+    assert calls == [(201, "Times Square", "https://x", "NemoClaw Sentinel")]
+
+
+def test_discovered_channels_only_merge_into_landmarks(tmp_path):
+    discovered = """channels:
+  - id: 220
+    name: discovered
+    url: https://example/live
+    event_type: abnormal_crowd
+"""
+    (tmp_path / "discovered.yaml").write_text(discovered, encoding="utf-8")
+    main = """channels:
+  - id: 1
+    name: primary
+    url: https://example/primary
+    event_type: traffic
+"""
+    (tmp_path / "world_channels.yaml").write_text(main, encoding="utf-8")
+    (tmp_path / "landmarks.yaml").write_text(main, encoding="utf-8")
+
+    world = rc.load_channels(str(tmp_path / "world_channels.yaml"), merge_discovered=True)
+    landmarks = rc.load_channels(str(tmp_path / "landmarks.yaml"), merge_discovered=True)
+
+    assert [c["id"] for c in world] == [1]
+    assert [c["id"] for c in landmarks] == [1, 220]
+    assert landmarks[1]["event_type"] == "security_anomaly"
+
+
+def test_discovery_is_opt_in(monkeypatch):
+    monkeypatch.delenv("NEMOCLAW_DISCOVERY_ENABLED", raising=False)
+    assert rc.discovery_enabled() is False
+    monkeypatch.setenv("NEMOCLAW_DISCOVERY_ENABLED", "1")
+    assert rc.discovery_enabled() is True

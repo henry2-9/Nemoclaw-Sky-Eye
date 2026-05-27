@@ -64,3 +64,21 @@ def grab_frame(video_path, out_path, second=None, scale=512):
                "-frames:v", "1", "-vf", f"scale={scale}:-1", "-q:v", "3", out_path]
     subprocess.run(cmd, capture_output=True, timeout=40)
     return out_path if os.path.exists(out_path) else None
+
+
+def capture_stream_clip(video_path, out_path, duration=4, scale=960):
+    """從 live 來源在候選觸發當下開始保存短片，供後續事件證據使用。"""
+    real_path = resolve_url(video_path)
+    if real_path is None or not str(real_path).lower().startswith(("rtsp://", "http://", "https://")):
+        return None
+    cmd = [
+        "ffmpeg", "-y", "-loglevel", "error", "-i", real_path,
+        "-t", str(float(duration)), "-vf", f"scale={scale}:-1",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+        "-an", "-movflags", "+faststart", out_path,
+    ]
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=float(duration) + 45)
+    except Exception:
+        return None
+    return out_path if os.path.exists(out_path) and os.path.getsize(out_path) > 0 else None

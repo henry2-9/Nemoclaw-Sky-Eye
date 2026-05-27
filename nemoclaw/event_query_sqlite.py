@@ -6,8 +6,9 @@ ChannelStore。支援與 mongo 版相同的基本指令:summary / latest / event
 media / cameras。輸出 JSON 形狀盡量對齊 mongo 版,但省去 FPG 專屬的
 event type/class 名稱查表(那需要 mongo 的 event_type/class 資料庫)。
 
-事件名稱別名僅支援 sentinel-video-ingest 自包含的 type(4-7,火煙/人流/
-氣候/闖入)與內建 0-3;非數字的 class 別名需 mongo 後端。"""
+事件名稱別名支援 sentinel-video-ingest 自包含的 type(4-7,火煙/人流/
+氣候/闖入)、NemoClaw live gate type(8-9,交通/公共安全異常)與內建 0-3;
+非數字的 class 別名需 mongo 後端。"""
 import argparse
 import glob
 import json
@@ -37,17 +38,20 @@ PICTSHARE_URL = os.environ.get("PICTSHARE_URL", "").strip().rstrip("/")
 PICTSHARE_PUBLIC_URL = os.environ.get("PICTSHARE_PUBLIC_URL", "").strip().rstrip("/")
 PICTSHARE_UPLOAD_CODE = os.environ.get("PICTSHARE_UPLOAD_CODE", "").strip()
 
-# 自包含的 type 對照(不需 mongo)。涵蓋內建 0-3 與 video-ingest 的 4-7。
+# 自包含的 type 對照(不需 mongo)。涵蓋內建 0-3、video-ingest 4-7 與 live gate 8-9。
 TYPE_ALIASES = {
     "ppe": 0, "behavior": 1, "behaviour": 1, "intrusion": 2, "safety": 3,
     "火煙偵測": 4, "fire_smoke": 4, "fire smoke": 4, "fire": 4,
     "異常人流": 5, "abnormal_crowd": 5, "abnormal crowd": 5,
     "異常氣候": 6, "abnormal_weather": 6, "abnormal weather": 6,
     "人員闖入": 7, "person_intrusion": 7, "video_intrusion": 7,
+    "交通異常": 8, "traffic": 8, "traffic_anomaly": 8, "traffic anomaly": 8,
+    "公共安全異常": 9, "security_anomaly": 9, "security anomaly": 9,
 }
 TYPE_NAMES = {
     0: "PPE", 1: "Behavior", 2: "Intrusion", 3: "Safety",
     4: "火煙偵測", 5: "異常人流", 6: "異常氣候", 7: "人員闖入",
+    8: "交通異常", 9: "公共安全異常",
 }
 
 

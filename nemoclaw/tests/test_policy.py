@@ -43,9 +43,18 @@ def test_block_low_confidence():
 
 # ① 去重
 def test_dedup_within_window():
-    recent = [{"channel":"7","event_type":"fire_smoke","ts": _noon().timestamp()-60}]
+    recent = [{"channel":"7","event_type":"fire_smoke","severity": "high",
+               "ts": _noon().timestamp()-60}]
     d = policy.evaluate(inc(), POL, recent=recent, now=_noon())
     assert d["decision"] == "DEDUP"
+
+def test_severity_escalation_bypasses_dedup():
+    recent = [{"channel":"7", "event_type":"fire_smoke", "severity":"low",
+               "ts": _noon().timestamp()-60}]
+    d = policy.evaluate(inc(severity="critical"), POL, recent=recent, now=_noon())
+    assert d["decision"] == "ALLOW"
+    assert "notify" in d["actions"]
+    assert "severity_escalation" in d["policy_hits"]
 
 # ① severity 路由
 def test_routing_high_includes_escalate():

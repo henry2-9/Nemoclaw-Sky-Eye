@@ -3,6 +3,10 @@
 import os, sys
 import yaml
 
+
+def discovery_enabled():
+    return os.environ.get("NEMOCLAW_DISCOVERY_ENABLED", "0") == "1"
+
 def _load_one(yaml_path):
     if not yaml_path or not os.path.exists(yaml_path):
         return {"channels": []}
@@ -24,12 +28,15 @@ def load_channels(yaml_path, merge_discovered=False):
         else:
             c["path"] = os.path.abspath(os.path.join(vdir, c["file"]))
         out.append(c); seen_ids.add(c["id"])
-    if merge_discovered:
+    # 自主發現的地標只合併至地標巡檢；不得污染獨立的國道/本地評測來源。
+    if merge_discovered and os.path.basename(os.path.abspath(yaml_path)) == "landmarks.yaml":
         discovered_path = os.path.join(os.path.dirname(os.path.abspath(yaml_path)), "discovered.yaml")
         for c in _load_one(discovered_path).get("channels", []) or []:
             if c.get("id") in seen_ids:
                 continue
             c = dict(c); c["path"] = os.path.expandvars(c.get("url", ""))
+            if c.get("event_type") == "abnormal_crowd":
+                c["event_type"] = "security_anomaly"  # migrate pre-security-gate discoveries in memory
             out.append(c); seen_ids.add(c["id"])
     return out
 
@@ -52,6 +59,8 @@ def _add_stream_channel(db, name, url, channel_id, location="NemoClaw Sentinel")
 def register(channels, db):
     for c in channels:
         if db.get_channel_by_channel_id(c["id"]):
+            if c.get("url") and hasattr(db, "update_stream_channel"):
+                db.update_stream_channel(c["id"], c["name"], c["path"], "NemoClaw Sentinel")
             continue
         if c.get("url"):                       # live 串流(世界攝影機)
             _add_stream_channel(db, c["name"], c["path"], c["id"])
@@ -66,7 +75,7 @@ def channels_file():
 def main():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import db_factory
-    chans = load_channels(channels_file(), merge_discovered=True)
+    chans = load_channels(channels_file(), merge_discovered=discovery_enabled())
     register(chans, db_factory.channel_db())
     print(f"registered/verified {len(chans)} channels from {channels_file()} "
           f"[backend={db_factory.backend()}]")

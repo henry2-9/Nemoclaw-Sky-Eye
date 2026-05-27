@@ -14,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import flight_recorder
 import media
+import wall_snapshots
 try:
     import watchdog as _watchdog
 except Exception:
@@ -30,6 +31,18 @@ try:
     import feed_health as _feed_health
 except Exception:
     _feed_health = None
+try:
+    import register_channels as _register_channels
+except Exception:
+    _register_channels = None
+try:
+    import correlation as _correlation
+except Exception:
+    _correlation = None
+try:
+    import hermes_followup as _followup
+except Exception:
+    _followup = None
 
 AUDIT = os.environ.get("NEMOCLAW_AUDIT_PATH",
                        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "audit.jsonl"))
@@ -64,6 +77,13 @@ def _notified(row):
         return bool(row.get("notification_sent"))
     return row.get("decision") == "ALLOW" and "notify" in (row.get("actions") or [])
 
+
+def _runtime_flight_rows():
+    """Dashboard statistics exclude deterministic unit-test traces accidentally written by old runs."""
+    synthetic = {"t1", "t-high", "t-crit"}
+    return [r for r in flight_recorder.load() if r.get("trace_id") not in synthetic]
+
+
 def _efficiency_metrics():
     """級聯效率:從 supervisor.log 聚合掃描/喚醒/確認;從 flight_recorder 算調查延遲。"""
     import statistics
@@ -84,7 +104,7 @@ def _efficiency_metrics():
             cand += int(d.get("candidates", 0)); inv += int(d.get("investigated", 0)); inc += int(d.get("incidents", 0))
     lat = []
     try:
-        by = flight_recorder.group_by_trace(flight_recorder.load())
+        by = flight_recorder.group_by_trace(_runtime_flight_rows())
         for stages in by.values():
             ts = {st.get("stage"): st.get("ts") for st in stages if st.get("ts")}
             if "nemotron_question" in ts and "policy_decision" in ts:
@@ -111,24 +131,15 @@ def _sev_zh(s):
 STYLE = """
 *{box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,-apple-system,'Noto Sans TC',sans-serif;margin:0;
-  min-height:100vh;color:#e7e9f3;background:#090a18;
-  background-image:
-    radial-gradient(900px 520px at 10% -10%, rgba(124,92,255,.30), transparent 60%),
-    radial-gradient(820px 520px at 94% 4%, rgba(0,194,255,.22), transparent 55%),
-    radial-gradient(760px 640px at 50% 116%, rgba(16,233,170,.14), transparent 60%),
-    linear-gradient(160deg,#090a18 0%,#11122c 46%,#0a1226 100%);
-  background-attachment:fixed}
-.wrap{max-width:1220px;margin:0 auto;padding:24px 20px 64px}
+  min-height:100vh;color:#edf0f2;background:#0a0f12}
+.wrap{max-width:1460px;margin:0 auto;padding:20px 22px 52px}
 a{color:#7fd6ff;text-decoration:none} a:hover{text-decoration:underline}
 code{color:#a7f3d0;background:rgba(255,255,255,.06);padding:1px 6px;border-radius:6px;font-size:12px}
-.glass{background:rgba(255,255,255,.055);backdrop-filter:blur(16px) saturate(140%);
-  -webkit-backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,.10);
-  border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06)}
+.glass{background:#10171c;border:1px solid #253039;border-radius:8px;
+  box-shadow:0 8px 20px rgba(0,0,0,.22)}
 .head{display:flex;justify-content:space-between;align-items:center;gap:16px;
   padding:18px 24px;margin-bottom:20px;flex-wrap:wrap}
-.brand{font-size:23px;font-weight:800;letter-spacing:.5px;
-  background:linear-gradient(90deg,#a78bfa,#22d3ee,#34d399);-webkit-background-clip:text;
-  background-clip:text;color:transparent}
+.brand{font-size:23px;font-weight:800;letter-spacing:0;color:#eef4f4}
 .sub{color:#9aa3c7;font-size:12.5px;margin-top:3px}
 .status{display:flex;gap:15px;flex-wrap:wrap;font-size:12.5px;color:#c7cdf0;align-items:center}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;
@@ -148,7 +159,7 @@ code{color:#a7f3d0;background:rgba(255,255,255,.06);padding:1px 6px;border-radiu
 .stat .l{color:#9aa3c7;font-size:12px;margin-top:3px} .pct{font-size:13px;color:#34d399;font-weight:700}
 table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
 th,td{padding:9px 11px;text-align:left;border-bottom:1px solid rgba(255,255,255,.07);vertical-align:top}
-th{color:#aab2da;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+th{color:#aab2da;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0}
 tbody tr:hover{background:rgba(255,255,255,.045)} tbody tr:last-child td{border-bottom:none}
 .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;
   border:1px solid transparent;white-space:nowrap}
@@ -159,6 +170,22 @@ tbody tr:hover{background:rgba(255,255,255,.045)} tbody tr:last-child td{border-
 .b-gov{color:#7dd3fc;background:rgba(125,211,252,.12);border-color:rgba(125,211,252,.3)}
 .b-inj{color:#fca5a5;background:rgba(252,165,165,.12);border-color:rgba(252,165,165,.3)}
 .ok{color:#34d399;font-weight:700} .bad{color:#f87171;font-weight:700}
+.tag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;text-transform:uppercase;letter-spacing:0}
+.tag-live{background:#113126;color:#47db9a;border:1px solid #285a46}
+.tag-test{background:#382122;color:#ff8c8c;border:1px solid #6f3638}
+.primary-grid{display:grid;grid-template-columns:minmax(610px,1.6fr) minmax(340px,.82fr);gap:16px;align-items:start}
+.primary-grid .panel{margin-bottom:0}
+.ops{display:grid;grid-template-columns:repeat(5,minmax(125px,1fr));gap:1px;background:#253039;
+  border:1px solid #253039;border-radius:8px;overflow:hidden;margin:16px 0}
+.op{background:#10171c;padding:12px 15px}.op-label{display:block;color:#8d9aa3;font-size:11px;margin-bottom:5px}
+.op strong{font-size:17px;color:#eef4f4}.op strong.good{color:#47db9a}
+.drill video{display:block;width:100%;height:auto;aspect-ratio:16/10;max-height:none;object-fit:cover;border-radius:6px}
+.drill-result{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.drill-result div{padding:9px 8px;background:#151e24;border-radius:6px;text-align:center}
+.drill-result span{display:block;color:#8d9aa3;font-size:11px;margin-bottom:4px}
+.drill-result strong{font-size:13px}
+.drill-actions{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:12px;font-size:12px}
+.cta{display:inline-flex;align-items:center;padding:8px 12px;background:#18323b;border:1px solid #2c6472;border-radius:6px;font-weight:700}
 .media-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 video,img{width:100%;max-height:440px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
   border-radius:12px;object-fit:contain}
@@ -185,12 +212,32 @@ h4{margin:6px 0}
 .th-ts{color:#7d86ad;font-family:ui-monospace,monospace;font-size:11.5px;min-width:64px;flex-shrink:0}
 .th-icon{font-size:14px;min-width:18px;flex-shrink:0}
 .th-text{color:#dfe3ff;word-break:break-word;line-height:1.45}
-.se-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
-.se-tile{padding:13px 15px;position:relative}
+.wall-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.wall-head h3{margin-bottom:0}
+.wall-totals{display:flex;gap:8px;flex-wrap:wrap}
+.wall-layout{display:grid;grid-template-columns:minmax(360px,1.28fr) minmax(300px,1fr);gap:14px;align-items:start}
+.wall-focus{padding:10px;border:1px solid #26323a;border-radius:6px;background:#0b1115}
+.wall-focus-media,.se-thumb{aspect-ratio:16/9;background:rgba(0,0,0,.32);border-radius:6px;overflow:hidden}
+.wall-focus-media img,.se-thumb img{height:100%;max-height:none;border:0;border-radius:0;object-fit:cover}
+.wall-empty{height:100%;display:flex;align-items:center;justify-content:center;color:#8b93b8;font-size:12px;border:1px dashed rgba(255,255,255,.13);border-radius:6px}
+.wall-focus-meta{display:flex;justify-content:space-between;gap:12px;margin-top:10px;align-items:flex-start}
+.wall-focus-name{font-size:16px;font-weight:700;color:#e2e6ff;line-height:1.35}
+.wall-rule{font-size:12px;color:#9aa3c7;margin-top:6px}
+.se-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.se-tile{display:block;padding:7px;position:relative;border:1px solid #253039;border-left:3px solid var(--state);border-radius:6px;background:#121b20}
+.se-tile:hover{background:rgba(255,255,255,.08);text-decoration:none}
+.se-tile.active{border-color:var(--state);background:rgba(255,255,255,.08)}
 .se-id{color:#7d86ad;font-size:11px;font-family:ui-monospace,monospace}
-.se-name{color:#e2e6ff;font-size:13.5px;font-weight:600;margin:3px 0 6px;line-height:1.3}
+.se-name{color:#e2e6ff;font-size:12.5px;font-weight:600;margin:7px 0 5px;line-height:1.3;min-height:33px}
 .se-status{font-size:12px;font-weight:700}
 .se-ts{color:#7d86ad;font-size:11px;margin-top:3px;font-family:ui-monospace,monospace}
+@media (max-width:860px){.wall-layout{grid-template-columns:1fr}.se-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:1100px){.primary-grid{grid-template-columns:1fr}.ops{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:520px){.se-grid{grid-template-columns:1fr}.wall-layout{display:block}.wall-focus{margin-bottom:12px}.ops{grid-template-columns:repeat(2,minmax(0,1fr))}}
+details.drawer{margin-top:18px;border-top:1px solid #253039;padding-top:14px}
+details.drawer summary{cursor:pointer;display:inline-flex;padding:9px 13px;color:#b4c0c7;
+  border:1px solid #29363d;border-radius:6px;background:#10171c;font-weight:600}
+details.drawer[open] summary{margin-bottom:16px}
 details.audit-more{margin-top:10px}
 details.audit-more summary{cursor:pointer;padding:8px 12px;border-radius:8px;
   background:rgba(255,255,255,.04);color:#9aa3c7;font-size:12.5px;user-select:none;list-style:none}
@@ -199,6 +246,29 @@ details.audit-more[open] summary::before{content:'▾ '}
 details.audit-more summary:hover{background:rgba(255,255,255,.08);color:#e2e6ff}
 details.audit-more[open] summary{background:rgba(255,255,255,.06);color:#e2e6ff;margin-bottom:6px}
 details.audit-more table{font-size:12.5px}
+.corr-grid{display:grid;gap:10px}
+.corr-card{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.35);
+  border-radius:10px;padding:10px 12px}
+.corr-card.crit{background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.45)}
+.corr-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.corr-head .et{font-weight:700;color:#fed7aa;font-size:14px}
+.corr-head.crit .et{color:#fecaca}
+.corr-meta{font-size:11.5px;color:#9aa3c7}
+.corr-ev{font-size:12px;color:#cbd5e1;margin-top:4px;padding-left:8px;border-left:2px solid rgba(255,255,255,.1)}
+.corr-ev div{padding:2px 0}
+.fu-grid{display:grid;gap:12px}
+.fu-card{background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.3);
+  border-radius:10px;padding:11px 13px}
+.fu-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.fu-head .ch{font-weight:700;color:#a5f3fc;font-size:14px}
+.fu-conc{font-size:12.5px;color:#e2e8f0;margin:6px 0;line-height:1.5}
+.fu-cmds{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;
+  background:rgba(0,0,0,.3);border-radius:6px;padding:8px;color:#cbd5e1;margin-top:6px}
+.fu-cmds .c{color:#7dd3fc;margin-top:6px}.fu-cmds .c:first-child{margin-top:0}
+.fu-cmds .p{color:#94a3b8;font-size:11px;margin-left:14px}
+.fu-cmds .o{color:#d1d5db;margin-left:14px;white-space:pre-wrap;max-height:80px;overflow:auto}
+.fu-foot{display:flex;gap:10px;font-size:11px;color:#9aa3c7;margin-top:6px}
+.fu-foot .gov{color:#67e8f9}
 """
 
 _BADGE_CLS = {"ALLOW": "b-allow", "BLOCK": "b-block", "DEDUP": "b-dedup", "ABSTAIN": "b-abstain"}
@@ -344,17 +414,23 @@ _SEV_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 _THREAT = {0: ("低", "#34d399"), 1: ("中", "#fbbf24"), 2: ("高", "#fb923c"), 3: ("嚴重", "#f87171")}
 
 
-def _uptime_str():
+def _supervisor_started_at():
     log = os.path.join(_NEMODIR, "supervisor.log")
     try:
         with open(log, encoding="utf-8") as f:
-            for line in f:
-                if "supervisor start" in line:
-                    start = datetime.datetime.fromisoformat(line.split()[0])
-                    secs = (datetime.datetime.now(start.tzinfo) - start).total_seconds()
-                    return f"{int(secs // 3600)}h {int((secs % 3600) // 60)}m"
+            starts = [line for line in f if "supervisor start" in line]
+        if starts:
+            return datetime.datetime.fromisoformat(starts[-1].split()[0])
     except Exception:
         pass
+    return None
+
+
+def _uptime_str():
+    start = _supervisor_started_at()
+    if start:
+        secs = (datetime.datetime.now(start.tzinfo) - start).total_seconds()
+        return f"{int(secs // 3600)}h {int((secs % 3600) // 60)}m"
     return "—"
 
 
@@ -387,7 +463,7 @@ def _health_dots(health):
 
 
 def _cascade_html():
-    all_rows = flight_recorder.load()
+    all_rows = _runtime_flight_rows()
     latest = flight_recorder.latest_traces(all_rows, 1)
     if not latest:
         return ""
@@ -400,21 +476,20 @@ def _cascade_html():
 
 
 def _render_command_center(rows, health=None):
-    handled = sum(1 for r in rows if r.get("decision") == "ALLOW")
+    scheduled = sum(1 for r in rows if r.get("trigger_origin") == "scheduled")
+    demos = sum(1 for r in rows if r.get("trigger_origin") == "demo_manual")
     uptime = _uptime_str()
     health = health if health is not None else _health_now()
     tlabel, tcolor = _threat(rows)
-    cascade = _cascade_html()
-    brief = _briefing.read_latest() if _briefing else ""
-    brief_html = (f"<div class=brief>🗒 最新情勢簡報:{html.escape(brief)}</div>" if brief else "")
-    return f"""<section class='panel glass cc'>
-  <div class=cc-top>
-    <div class=cc-proof>🤖 <b>全自主運行</b> · 人工介入 <b class=zero>0</b> 次 · 已連續 <b>{uptime}</b> · 處理 <b>{handled}</b> 起</div>
-    <div class=cc-threat>威脅等級 <span class=threat style='color:{tcolor};border-color:{tcolor}66;background:{tcolor}1f'>{tlabel}</span></div>
-  </div>
-  <div class=cc-health>{_health_dots(health)}</div>
-  {cascade}
-  {brief_html}
+    service_ok = all(health.get(k) == "up" for k in ("nemotron", "falcon", "nemoclaw")) if health else False
+    service = "正常" if service_ok else "檢查中"
+    service_cls = "good" if service_ok else ""
+    return f"""<section class=ops>
+  <div class=op><span class=op-label>服務</span><strong class='{service_cls}'>{service}</strong></div>
+  <div class=op><span class=op-label>處置模式</span><strong class=good>自動</strong></div>
+  <div class=op><span class=op-label>運行時間</span><strong>{uptime}</strong></div>
+  <div class=op><span class=op-label>LIVE 確認事件</span><strong>{scheduled}</strong></div>
+  <div class=op><span class=op-label>攻擊演練</span><strong style='color:{tcolor}'>{demos} · {tlabel}</strong></div>
 </section>"""
 
 
@@ -426,37 +501,109 @@ _THOUGHT_TAGS = {
 }
 
 
-def _render_sky_eye_grid():
-    """天眼網格:每個全球地標頻道顯示 online/offline 狀態,agent 自主管理外部來源。"""
-    if not _feed_health:
+def _render_sky_eye_grid(selected_channel=None):
+    """Render a privacy-processed monitoring wall for the supervisor's active channel set."""
+    if not _feed_health or not _register_channels:
+        return ""
+    active_marker = os.path.join(_NEMODIR, "active_channels_file")
+    active_file = os.environ.get("NEMOCLAW_CHANNELS_FILE", "")
+    try:
+        marked = open(active_marker, encoding="utf-8").read().strip()
+        active_file = marked or active_file
+    except OSError:
+        pass
+    if not active_file:
+        return ""
+    try:
+        channels = _register_channels.load_channels(
+            active_file,
+            merge_discovered=_register_channels.discovery_enabled(),
+        )
+    except Exception:
         return ""
     full = _feed_health.state()
-    # 天眼網格僅顯示 landmark 頻道(id ≥ 200);舊本地/區域 cam 不入網格
-    st = {k: v for k, v in full.items() if str(k).isdigit() and int(k) >= 200}
-    if not st:
+    if not channels:
         return ""
-    online = sum(1 for v in st.values() if v.get("ok"))
-    tiles = []
-    for k, v in sorted(st.items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 0):
+    source_name = {
+        "landmarks.yaml": "地標天眼牆",
+        "world_channels.yaml": "國道即時來源",
+        "channels.yaml": "本地 Replay",
+    }.get(os.path.basename(active_file), "已設定來源")
+    entries = []
+    for c in channels:
+        k = str(c.get("id", ""))
+        v = full.get(k, {"name": c.get("name", ""), "last": "", "ok": None})
+        entries.append((c, k, v, wall_snapshots.preview(k)))
+    selected = next((e for e in entries if e[1] == str(selected_channel or "")), None)
+    selected = selected or next((e for e in entries if e[2].get("ok") is True and e[3]), entries[0])
+    online = sum(1 for _, _, v, _ in entries if v.get("ok") is True)
+    offline = sum(1 for _, _, v, _ in entries if v.get("ok") is False)
+    pending = len(entries) - online - offline
+
+    def status_meta(v):
         ok = v.get("ok")
-        color = "#34d399" if ok else "#f87171"
-        status = "🟢 online" if ok else "🔴 offline"
+        color = "#34d399" if ok is True else ("#f87171" if ok is False else "#9aa3c7")
+        status = "正常" if ok is True else ("離線" if ok is False else "待檢")
+        return color, status
+
+    def snapshot(preview, alt, focus=False):
+        if not preview:
+            return "<div class=wall-empty>巡檢快照待產生</div>"
+        klass = "wall-focus-image" if focus else "wall-thumb-image"
+        version = urllib.parse.quote(str(preview.get("captured_at", "")))
+        return (f"<img class='{klass}' src='{html.escape(preview['url'])}?v={version}' "
+                f"alt='{html.escape(alt)}巡檢快照'>")
+
+    c, k, v, preview = selected
+    color, status = status_meta(v)
+    ts = (v.get("last", "") or "尚無巡檢時間").replace("T", " ")
+    focus = (
+        f"<div class=wall-focus><div class=wall-focus-media>{snapshot(preview, c.get('name', ''), focus=True)}</div>"
+        f"<div class=wall-focus-meta><div><div class=se-id>LIVE · CH{html.escape(k)}</div>"
+        f"<div class=wall-focus-name>{html.escape(c.get('name', ''))}</div>"
+        f"<div class=wall-rule>火煙 / 遺留物 / 人流偏離</div></div>"
+        f"<div><div class=se-status style='color:{color}'>{status}</div>"
+        f"<div class=se-ts>{html.escape(ts)}</div></div></div></div>"
+    )
+    tiles = []
+    for c, k, v, preview in entries:
+        color, status = status_meta(v)
         ts = (v.get("last", "") or "")[-8:]
         tiles.append(
-            f"<div class='se-tile glass' style='border-left:3px solid {color};box-shadow:0 0 14px {color}22'>"
-            f"<div class=se-id>ch{html.escape(str(k))}</div>"
-            f"<div class=se-name>{html.escape(v.get('name', ''))}</div>"
-            f"<div class=se-status style='color:{color}'>{status}</div>"
-            f"<div class=se-ts>{html.escape(ts)}</div></div>")
-    return (f"<section class='panel glass'><h3>🌐 天眼 · 全球地標即時 "
-            f"<span class=muted style='font-size:11px;font-weight:400'>{online}/{len(st)} 線上 · agent 自主管理外部來源</span></h3>"
-            f"<div class=se-grid>{''.join(tiles)}</div></section>")
+            f"<a class='se-tile{' active' if k == selected[1] else ''}' href='/?channel={urllib.parse.quote(k)}' "
+            f"style='--state:{color}'>"
+            f"<div class=se-thumb>{snapshot(preview, c.get('name', ''))}</div>"
+            f"<div class=se-name>{html.escape(v.get('name') or c.get('name', ''))}</div>"
+            f"<div class=se-status style='color:{color}'>{status} <span class=se-id>ch{html.escape(k)}</span></div>"
+            f"<div class=se-ts>{html.escape(ts)}</div></a>")
+    totals = (
+        f"<span class='badge b-gov'>監看 {len(entries)}</span>"
+        f"<span class='badge b-allow'>正常 {online}</span>"
+        f"<span class='badge b-block'>離線 {offline}</span>"
+        f"<span class='badge b-dedup'>待檢 {pending}</span>"
+    )
+    return (f"<section class='panel glass live-wall'><div class=wall-head><h3><span class='tag tag-live'>LIVE</span> {source_name} "
+            f"<span class=muted style='font-size:11px;font-weight:400'>正常巡檢</span></h3>"
+            f"<div class=wall-totals>{totals}</div></div>"
+            f"<div class=wall-layout>{focus}<div class=se-grid>{''.join(tiles)}</div></div></section>")
 
 
 def _render_thoughts():
     if not _thoughts:
         return ""
-    items = _thoughts.latest(12)
+    items = _thoughts.latest(100)
+    start = _supervisor_started_at()
+    if start:
+        local_start = start.replace(tzinfo=None)
+        visible = []
+        for it in items:
+            try:
+                if datetime.datetime.fromisoformat(str(it.get("ts", ""))) >= local_start:
+                    visible.append(it)
+            except ValueError:
+                continue
+        items = visible
+    items = items[-12:]
     if not items:
         return ""
     rows = []
@@ -473,16 +620,73 @@ def _render_thoughts():
             f"<div class=thoughts>{''.join(reversed(rows))}</div></section>")
 
 
+def _render_correlation():
+    if not _correlation:
+        return ""
+    alerts = _correlation.latest(6)
+    if not alerts:
+        body = "<div class=empty>無跨地標關聯警報(過去 5 分鐘內各地標獨立)</div>"
+    else:
+        cards = []
+        for a in alerts:
+            crit = " crit" if a.get("severity_inferred") == "critical" else ""
+            ts = (a.get("ts_iso") or "")[-8:]
+            ev_html = "".join(
+                f"<div>ch{html.escape(str(e.get('channel','')))} · "
+                f"{html.escape((e.get('summary') or '')[:80])}</div>"
+                for e in (a.get("evidence") or [])[:4])
+            cards.append(
+                f"<div class='corr-card{crit}'>"
+                f"<div class='corr-head{crit}'>"
+                f"<span class=et>🌐 {html.escape(a.get('event_type',''))} "
+                f"× {a.get('channel_count','')} 路同時</span>"
+                f"<span class=corr-meta>{html.escape(ts)} · "
+                f"升級 {_sev_zh(a.get('severity_inferred'))}</span></div>"
+                f"<div class=corr-ev>{ev_html}</div></div>")
+        body = f"<div class=corr-grid>{''.join(cards)}</div>"
+    return (f"<section class='panel glass'><h3>🌐 跨地標關聯偵測 "
+            f"<span class=muted style='font-size:11px;font-weight:400'>"
+            f"5min 窗 · ≥2 路同類事件升級</span></h3>{body}</section>")
+
+
+def _render_followups():
+    if not _followup:
+        return ""
+    items = _followup.latest(5)
+    if not items:
+        body = ("<div class=empty>無 sandbox 二次調查(等待 high/critical 事件觸發)</div>")
+    else:
+        cards = []
+        for f in items:
+            ts = (f.get("ts_iso") or "")[-8:]
+            elapsed = f.get("elapsed_ms", 0)
+            cmds_html = ""
+            for c in (f.get("commands") or [])[:2]:
+                stdout = (c.get("stdout") or "").strip()[:300]
+                cmds_html += (
+                    f"<div class=c>$ {html.escape(c.get('cmd',''))}</div>"
+                    f"<div class=p># {html.escape(c.get('purpose',''))}</div>"
+                    f"<div class=o>{html.escape(stdout) or '<span class=muted>(empty)</span>'}</div>")
+            cards.append(
+                f"<div class=fu-card>"
+                f"<div class=fu-head><span class=ch>🛰 ch{html.escape(str(f.get('channel','')))} · "
+                f"{html.escape(f.get('event_type',''))} "
+                f"({_sev_zh(f.get('severity'))})</span>"
+                f"<span class=muted style='font-size:11.5px'>{html.escape(ts)} · {elapsed}ms</span></div>"
+                f"<div class=fu-conc>{html.escape(f.get('conclusion') or '(無結論)')}</div>"
+                f"<div class=fu-cmds>{cmds_html}</div>"
+                f"<div class=fu-foot><span class=gov>🛡 OpenShell 沙箱治理</span>"
+                f"<span>· {len(f.get('commands') or [])} 條 read-only 指令 · allowlist 守住</span></div>"
+                f"</div>")
+        body = f"<div class=fu-grid>{''.join(cards)}</div>"
+    return (f"<section class='panel glass'><h3>🛰 OpenShell 沙箱二次調查 "
+            f"<span class=muted style='font-size:11px;font-weight:400'>"
+            f"Hermes 自主規劃 read-only 指令 → 跑沙箱 → 寫結論</span></h3>{body}</section>")
+
+
 def _latest_media_row(rows):
-    """挑最近一筆 landmark(ch≥200)、severity ≥ medium 且有 media 的「可疑事件」。
-    低嚴重度只是常態觀察,不上事件面板(會被計入思考流)。"""
+    """Select the latest significant event with media, including manual attack demos."""
     for r in reversed(rows):
-        try:
-            ch = int(r.get("channel"))
-        except Exception:
-            continue
-        if ch < 200:
-            continue
         if r.get("severity") in (None, "", "low"):
             continue
         urls = (r.get("media_artifacts") or {}).get("urls") or {}
@@ -491,48 +695,44 @@ def _latest_media_row(rows):
     return None
 
 
-def _render_current_incident(rows):
-    """首頁直接秀最新「天眼事件」的錄影切片 + Falcon 標記圖 + 自主處置標記。"""
-    r = _latest_media_row(rows)
+def _latest_demo_row(rows):
+    for r in reversed(rows):
+        if r.get("trigger_origin") == "demo_manual" and _latest_media_row([r]):
+            return r
+    return None
+
+
+def _render_attack_scene(rows):
+    """Render deterministic abnormal proof separately from the normal live wall."""
+    r = _latest_demo_row(rows)
     if not r:
-        return ("<section class='panel glass'>"
-                "<h3>🎥 最新天眼事件 · 自主處置</h3>"
-                "<p class=muted>天眼持續監看城市/交通/公共地標——目前無**可疑事件**;若偵測到火/煙/衝突/可疑物品/異常人群,將自動連同錄影切片在此呈現。日常觀察記入下方思考流。</p>"
+        return ("<section class='panel glass drill'>"
+                "<h3><span class='tag tag-test'>TEST</span> 攻擊演練</h3>"
+                "<div class=empty>尚無演練紀錄</div>"
                 "</section>")
     urls = (r.get("media_artifacts") or {}).get("urls") or {}
     clip = urls.get("clip") or ""
-    annot = urls.get("falcon_annotated") or urls.get("frame") or ""
-    sev_raw = str(r.get("severity", "")).upper()
-    sevcls = {"CRITICAL": "b-block", "HIGH": "b-block",
-              "MEDIUM": "b-abstain", "LOW": "b-dedup"}.get(sev_raw, "b-dedup")
     sev = _sev_zh(r.get("severity"))
-    marks = []
-    if r.get("escalated"):
-        marks.append("<span class='badge b-block'>🔴 二級升級</span>")
-    if r.get("report_path"):
-        marks.append("<span class='badge b-gov'>📄 已產報告</span>")
-    if r.get("injection_detected"):
-        marks.append("<span class='badge b-inj'>⚠ 注入已擋</span>")
-    gov = "🛡 NemoClaw" if r.get("governed_by") == "nemoclaw-openshell" else str(r.get("governed_by") or "")
     q = urllib.parse.urlencode({"trace_id": r.get("trace_id", "")})
     video_html = (f"<video controls autoplay muted loop playsinline preload='metadata' "
                   f"src='{html.escape(clip)}'></video>" if clip else "<div class=empty>無錄影切片</div>")
-    img_html = (f"<a href='{html.escape(annot)}'><img src='{html.escape(annot)}' alt='Falcon 標記圖'></a>"
-                if annot else "<div class=empty>無標記圖</div>")
-    return f"""<section class='panel glass'>
-  <h3>🎥 最新天眼事件 · 自主處置 <span class='badge {sevcls}'>{sev or '—'}</span>
-    <span class=muted style='font-weight:400'>{html.escape(str(r.get('channel','')))} · {html.escape(str(r.get('event_type','')))}</span>
-    {' '.join(marks)}</h3>
-  <div class=media-grid>
-    <div><h4>錄影切片(已馬賽克)</h4>{video_html}</div>
-    <div><h4>Falcon 標記圖</h4>{img_html}</div>
+    blocked = "已阻擋" if r.get("injection_detected") else "未標記"
+    action = "已升級" if r.get("escalated") else "已判定"
+    return f"""<section class='panel glass drill'>
+  <div class=wall-head><h3><span class='tag tag-test'>TEST</span> 攻擊演練</h3>
+    <span class='badge b-dedup'>受控重現</span></div>
+  {video_html}
+  <div class=drill-result>
+    <div><span>場景</span><strong>火煙</strong></div>
+    <div><span>假指令</span><strong class=bad>{blocked}</strong></div>
+    <div><span>結果</span><strong class=bad>{sev} · {action}</strong></div>
   </div>
-  <p class=muted>{html.escape(str(r.get('summary',''))[:160] or '—')} · 治理:{html.escape(gov or '—')} · <a href='/trace?{q}'>展開飛行紀錄</a></p>
+  <div class=drill-actions><span class=muted>NemoClaw 防護</span><a class=cta href='/trace?{q}'>查看證據鏈</a></div>
 </section>"""
 
 
 def _render_attack_matrix():
-    """🛡 NemoClaw 安全防護面板:測試 agent 能否抵擋畫面內的「假指令攻擊」。"""
+    """Policy regression panel; the recorded attack scene proves video-to-governance behavior."""
     if not os.path.exists(ATTACK_MATRIX):
         return ""
     try:
@@ -541,12 +741,12 @@ def _render_attack_matrix():
         return ""
     rows = ""
     for r in rep.get("rows", []):
-        blocked = "<span class=ok>✅ 已阻擋</span>" if r.get("defended") else "<span class=bad>❌ 未阻擋</span>"
+        blocked = "<span class=ok>✅ 通過</span>" if r.get("defended") else "<span class=bad>❌ 失敗</span>"
         recognized = ("<span class='badge b-inj'>⚠ 識破</span>" if r.get("injection_flagged")
                       else "<span class=muted>—</span>")
         sev = ("<span class=ok>維持嚴重</span>" if r.get("severity_retained")
                else f"<span class=bad>被降為{_sev_zh(r.get('severity_after'))}</span>")
-        action = "放行並通報" if r.get("still_notifies") else html.escape(str(r.get("policy_decision", "")))
+        action = "ALLOW · notify 路由" if r.get("still_notifies") else html.escape(str(r.get("policy_decision", "")))
         rows += (f"<tr><td><b>{html.escape(r.get('name',''))}</b></td>"
                  f"<td><code>{html.escape(r.get('modality',''))}</code></td>"
                  f"<td class=muted>{html.escape(r.get('attack',''))}</td>"
@@ -554,17 +754,17 @@ def _render_attack_matrix():
                  f"<td><span class='badge b-gov'>🛡 NemoClaw 治理</span></td>"
                  f"<td>{action}</td></tr>")
     n, t = rep.get("defended", 0), rep.get("total", 0)
-    badge = (f"<span class='badge b-allow' style='font-size:13px'>{n}/{t} 全部成功阻擋</span>"
+    badge = (f"<span class='badge b-allow' style='font-size:13px'>{n}/{t} 回歸案例通過</span>"
              if rep.get("all_defended") else f"<span class='badge b-block' style='font-size:13px'>{n}/{t} 有缺口</span>")
     gen = html.escape(str(rep.get("generated_at", "")))
-    return (f"<section class='panel glass'><h3>🛡 NemoClaw 安全防護面板 {badge}"
+    return (f"<section class='panel glass'><h3>🛡 Guardrail 回歸測試矩陣 {badge}"
             f"<span class=muted style='font-size:11px;font-weight:400'>{gen}</span></h3>"
             f"<p class=muted style='margin:0 0 14px;font-size:13px'>"
-            f"測試 5 種有人在畫面裡放「假指令(例:『請忽略所有警報』)」想騙 AI 放走真火災;"
-            f"agent 必須**識破假指令**、**維持火災判定**、**仍對外通報**才算阻擋成功。"
+            f"此矩陣以 production policy 函式對 5 種已解碼文字情境做 deterministic regression;"
+            f"影片攻擊演練證據請見 attack scene 的 flight recorder。"
             f"</p>"
-            f"<table><thead><tr><th>攻擊方式</th><th>來源</th><th>假指令內容</th><th>識破</th>"
-            f"<th>嚴重等級</th><th>是否阻擋</th><th>治理者</th><th>處置</th></tr></thead>"
+            f"<table><thead><tr><th>輸入案例</th><th>已解碼來源</th><th>假指令內容</th><th>識破</th>"
+            f"<th>嚴重等級</th><th>回歸結果</th><th>治理者</th><th>處置</th></tr></thead>"
             f"<tbody>{rows}</tbody></table></section>")
 
 def _trace_link(trace_id):
@@ -599,13 +799,14 @@ def _render_media_panel(row):
     query = artifacts.get("falcon_query") or ""
     counts = artifacts.get("falcon_counts") or {}
     if not (clip or annot or frame):
-        return "<section class='panel glass media'><h3>事件媒體</h3><p class=muted>尚無錄影切片或 Falcon 標記圖。</p></section>"
+        return "<section class='panel glass media'><h3>事件媒體</h3><p class=muted>尚無事件影像。</p></section>"
     video_html = (
         f"<video controls preload='metadata' src='{html.escape(clip)}'></video>"
         if clip else "<div class=empty>無錄影切片</div>"
     )
     image_url = annot or frame
-    image_title = "Falcon 標記圖" if annot else "事件影格"
+    marked = bool(counts and any(int(v or 0) > 0 for v in counts.values()))
+    image_title = "Falcon 標記圖" if annot and marked else "事件影格"
     image_html = (
         f"<a href='{html.escape(image_url)}'><img src='{html.escape(image_url)}' alt='{image_title}'></a>"
         if image_url else "<div class=empty>無標記圖</div>"
@@ -649,6 +850,9 @@ def _render_trace(trace_id):
 class H(BaseHTTPRequestHandler):
     def do_HEAD(self):
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path.startswith("/wall/"):
+            self._send_wall_snapshot(parsed.path[len("/wall/"):], head_only=True)
+            return
         if parsed.path.startswith("/media/"):
             self._send_media(parsed.path[len("/media/"):], head_only=True)
             return
@@ -666,17 +870,22 @@ class H(BaseHTTPRequestHandler):
         if parsed.path.startswith("/media/"):
             self._send_media(parsed.path[len("/media/"):])
             return
+        if parsed.path.startswith("/wall/"):
+            self._send_wall_snapshot(parsed.path[len("/wall/"):])
+            return
+        qs = urllib.parse.parse_qs(parsed.query)
+        selected_channel = (qs.get("channel") or [""])[0]
         rows = _rows()
         s, notified, inj, gov = _stats(rows)
-        flight_count = len(flight_recorder.group_by_trace(flight_recorder.load()))
+        flight_count = len(flight_recorder.group_by_trace(_runtime_flight_rows()))
         m = _efficiency_metrics()
         health = _health_now()
         command_center = _render_command_center(rows, health)
-        sky_eye_grid = _render_sky_eye_grid()
+        sky_eye_grid = _render_sky_eye_grid(selected_channel)
         thoughts_panel = _render_thoughts()
-        current_incident = _render_current_incident(rows)
+        attack_scene = _render_attack_scene(rows)
         status_html = (_health_dots(health)
-                       + "<span class=muted>7×24 · 零人工 · 每 5s 自動刷新</span>")
+                       + "<span class=muted>每 5s 更新</span>")
         dist = " ".join(
             f"<span class='badge {cls}'>{name} {s[name]}</span>"
             for name, cls in (("ALLOW", "b-allow"), ("BLOCK", "b-block"),
@@ -707,25 +916,30 @@ class H(BaseHTTPRequestHandler):
             f"<table><tbody>{''.join(_incident_row(r) for r in recent[12:])}</tbody></table></details>"
             if rest_count > 0 else "")
         attack_matrix = _render_attack_matrix()
+        correlation_panel = _render_correlation()
+        followups_panel = _render_followups()
         html = f"""<!doctype html><html lang=zh-Hant><head><meta charset=utf-8>
 <meta http-equiv=refresh content=5><title>NemoClaw Sentinel</title>
 <style>{STYLE}</style></head><body><div class=wrap>
 <header class='head glass'>
-  <div><div class=brand>🌐 NEMOCLAW 天眼 · SKY EYE</div>
-  <div class=sub>全球地標 7×24 自主巡檢 · Nemotron 看 · NemoClaw 守 · 單台 GB10</div></div>
+  <div><div class=brand>NEMOCLAW · SKY EYE</div>
+  <div class=sub>地標巡檢 / 異常演練 · GB10</div></div>
   <div class=status>{status_html}</div>
 </header>
+<main class=primary-grid>{sky_eye_grid}{attack_scene}</main>
 {command_center}
-{sky_eye_grid}
-{thoughts_panel}
-{current_incident}
+{correlation_panel}
+{followups_panel}
+<details class=drawer><summary>事件紀錄與技術證據</summary>
 <div class=tiles>{tiles}</div>
-<section class='panel glass'><h3>⚡ 級聯效率 <span class=muted style='font-size:11px;font-weight:400'>便宜感知連續掃,只有出事才喚醒 Nemotron</span></h3>
+<section class='panel glass'><h3>級聯效率</h3>
 <div class=stats>{eff}</div></section>
 {attack_matrix}
-<section class='panel glass'><h3>📋 決策稽核軌跡 <span class=muted style='font-size:11px;font-weight:400'>最新 {len(recent)} 列,預設顯示 12 列</span></h3>
+{thoughts_panel}
+<section class='panel glass'><h3>決策稽核軌跡 <span class=muted style='font-size:11px;font-weight:400'>最新 {len(recent)} 列</span></h3>
 <table><thead><tr><th>時間</th><th>Ch</th><th>類型</th><th>決策</th><th>治理</th><th>注入</th><th>動作</th><th>Flight</th><th>媒體</th><th>理由</th></tr></thead>
 <tbody>{items}</tbody></table>{audit_expand}</section>
+</details>
 </div></body></html>"""
         self._send_html(html)
 
@@ -784,10 +998,26 @@ class H(BaseHTTPRequestHandler):
                 self.wfile.write(chunk)
                 remaining -= len(chunk)
 
+    def _send_wall_snapshot(self, rel, head_only=False):
+        target = wall_snapshots.resolve_public(urllib.parse.unquote(rel).lstrip("/"))
+        if not target:
+            self.send_error(404)
+            return
+        size = target.stat().st_size
+        self.send_response(200)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Content-Length", str(size))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        if not head_only:
+            with open(target, "rb") as f:
+                shutil.copyfileobj(f, self.wfile)
+
     def log_message(self, *a):
         pass
 
 if __name__ == "__main__":
     port = int(os.environ.get("NEMOCLAW_DASHBOARD_PORT", "8099"))
-    print(f"dashboard on :{port} (audit={AUDIT})")
-    HTTPServer(("0.0.0.0", port), H).serve_forever()
+    bind = os.environ.get("NEMOCLAW_DASHBOARD_BIND", "127.0.0.1")
+    print(f"dashboard on {bind}:{port} (audit={AUDIT})")
+    HTTPServer((bind, port), H).serve_forever()

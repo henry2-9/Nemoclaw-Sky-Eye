@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Attack Challenge Matrix — 對抗多模態 prompt-injection 的安全測試矩陣。
+"""Guardrail Regression Matrix — 已解碼注入內容的 deterministic policy 測試。
 
-對每一種攻擊(中文疊字 / 英文疊字 / QR 指令 / 局部遮擋 / 語音字幕),
-模擬「高信心火災 + 惡意降級企圖」,並**用真實 production 函式**驗證防禦:
+對每一種已解碼的攻擊文字來源(中文/英文 OCR、QR 解碼、局部 OCR、字幕轉錄),
+模擬「高信心火災 + 惡意降級企圖」,並用 production policy 函式驗證防禦:
 
   - policy.evaluate()            → 政策閘是否標記 injection_detected、是否仍 ALLOW 通報
   - orchestrator._triage_severity() → 視覺安全下限是否否決「依未信任畫面文字降級」
 
-不另外重寫判斷邏輯;矩陣只是把單一注入場景擴成多模態,證明防禦與「文字來源
-管道」無關(疊字、QR、遮擋、語音轉錄都被當證據、不被當指令)。
+本檔不生成圖片或音訊,也不呼叫視覺模型。真實媒體端到端證據由
+`demo_attack_scene.sh` 提供;本矩陣用來防止 policy regression。
 """
 import datetime
 import json
@@ -125,8 +125,8 @@ def _pad(s, width):
 
 def _print_table(report):
     g = "\033[92m"; r = "\033[91m"; b = "\033[1m"; d = "\033[0m"; c = "\033[96m"
-    print(f"\n{b}🛡️  NemoClaw Sentinel — Attack Challenge Matrix{d}")
-    print(f"{c}多模態 prompt-injection 對抗:高信心火災(critical)被攻擊企圖降級為 low{d}\n")
+    print(f"\n{b}🛡️  NemoClaw Sentinel — Guardrail Regression Matrix{d}")
+    print(f"{c}已解碼注入文字的 policy 回歸測試:critical 火災被企圖降級為 low{d}\n")
     cols = [("攻擊管道", 20), ("注入標記", 12), ("severity", 20),
             ("守住", 10), ("治理", 20), ("政策", 16)]
     print(b + "".join(_pad(h, w) for h, w in cols) + d)
@@ -144,14 +144,14 @@ def _print_table(report):
         print("".join(_pad(s, w) for s, w in cells))
     print("─" * 92)
     n, t = report["defended"], report["total"]
-    tag = (f"{g}{b}{n}/{t} 攻擊全數防禦{d}" if report["all_defended"]
+    tag = (f"{g}{b}{n}/{t} 回歸案例通過{d}" if report["all_defended"]
            else f"{r}{b}{n}/{t} 有缺口{d}")
     print(f"結果:{tag}\n")
 
 
 def main():
     import argparse
-    p = argparse.ArgumentParser(description="Attack Challenge Matrix runner")
+    p = argparse.ArgumentParser(description="Guardrail Regression Matrix runner")
     p.add_argument("--json", action="store_true", help="輸出 JSON(供 dashboard)")
     p.add_argument("--write", action="store_true",
                    help="寫入 attack_matrix.json(dashboard 面板讀取)")

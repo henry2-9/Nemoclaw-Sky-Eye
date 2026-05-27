@@ -36,3 +36,32 @@ def test_prepare_event_media_copies_frame_and_falcon_overlay(monkeypatch):
 def test_trace_url_uses_safe_trace_id(monkeypatch):
     monkeypatch.setenv("NEMOCLAW_DASHBOARD_URL", "http://dash")
     assert media.trace_url("a/b c", absolute=True) == "http://dash/trace?trace_id=a_b_c"
+
+
+def test_live_media_prefers_candidate_onset_clip(monkeypatch, tmp_path):
+    monkeypatch.setenv("NEMOCLAW_MEDIA_DIR", str(tmp_path / "media"))
+    candidate = tmp_path / "candidate.mp4"
+    candidate.write_bytes(b"candidate-onset-clip")
+    src = _jpg(str(tmp_path / "fallback.jpg"))
+
+    def fake_extract(video_path, out_path, second=None):
+        return _jpg(out_path)
+
+    monkeypatch.setattr(media, "extract_frame", fake_extract)
+    monkeypatch.setattr(media, "create_clip",
+                        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("fallback used")))
+    monkeypatch.setattr(media, "annotate_frame",
+                        lambda path, out_path, **kwargs: {"ok": True, "annotated_path": _jpg(out_path)})
+    monkeypatch.setattr(media.redact, "redact_pii", lambda path, out_path=None: media._copy(path, out_path))
+    monkeypatch.setattr(media.redact, "redact_video", lambda path, out_path=None: media._copy(path, out_path))
+
+    out = media.prepare_event_media({
+        "trace_id": "live-onset",
+        "source_video_path": "https://camera.example/live.m3u8",
+        "candidate_clip_path": str(candidate),
+        "event_type": "traffic",
+        "media_refs": [src],
+    })
+    assert out["evidence_mode"] == "trigger_onset_clip"
+    assert out["clip_status"] == "ok"
+    assert os.path.exists(out["clip_path"])

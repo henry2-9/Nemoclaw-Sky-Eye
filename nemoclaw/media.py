@@ -17,6 +17,8 @@ EVENT_QUERY = {
     "intrusion": "person",
     "abnormal_crowd": "person",
     "abnormal_weather": "flood, fallen tree, smoke, fire",
+    "traffic": "fire, smoke, person, car, truck, motorcycle",
+    "security_anomaly": "fire, smoke, bag, suitcase, person",
 }
 
 
@@ -182,20 +184,24 @@ def prepare_event_media(incident):
     trace_id = incident.get("trace_id") or f"{incident.get('channel')}-{incident.get('event_type')}"
     out_dir = artifact_dir(trace_id)
     source_video = incident.get("source_video_path") or incident.get("video_path") or ""
+    candidate_clip = incident.get("candidate_clip_path") or ""
     playhead = incident.get("playhead_sec")
     frame_src = (incident.get("media_refs") or [None])[0]
     live = is_stream(source_video)
     clip_status = "ok"
 
     if live:
-        # live URL:往後錄製 forward clip,再從 clip 抽代表幀(與影片一致)
-        clip_path = create_clip(source_video, str(out_dir / "clip.mp4"))
+        # live 候選在 sweep 當下已先保存 onset clip;僅在缺失時退回確認後錄製。
+        clip_path = _copy(candidate_clip, out_dir / "clip.mp4") if candidate_clip else None
+        evidence_mode = "trigger_onset_clip" if clip_path else "post_confirmation_clip"
+        clip_path = clip_path or create_clip(source_video, str(out_dir / "clip.mp4"))
         frame_path = extract_frame(clip_path, str(out_dir / "frame.jpg")) if clip_path else None
         if not frame_path:                      # clip/抽幀失敗 → 退回 sweep 當下那張幀
             frame_path = _copy(frame_src, out_dir / "frame.jpg")
         if not clip_path:
             clip_status = "stream_unavailable"
     else:
+        evidence_mode = "local_event_clip"
         frame_path = _copy(frame_src, out_dir / "frame.jpg")
         if not frame_path and source_video:
             frame_path = extract_frame(source_video, str(out_dir / "frame.jpg"), playhead)
@@ -222,6 +228,7 @@ def prepare_event_media(incident):
         "trace_id": safe_trace_id(trace_id),
         "source_video_path": source_video,
         "is_live": live,
+        "evidence_mode": evidence_mode,
         "clip_status": clip_status,
         "privacy_processed": privacy_processed,
         "playhead_sec": playhead,
