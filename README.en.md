@@ -31,10 +31,10 @@
 > 👉 **Screenshot pending**: `nemoclaw/docs/screenshots/home.png` (home page N×N wall + right-side 📡 Live Events)
 > Temporary reference: `home-legacy.png` (older focus-grid layout, same dark theme)
 
-### Full-screen Surveillance Wall: `/wall?layout=16`
-![Surveillance Wall](nemoclaw/docs/screenshots/wall.png)
+### 🌐 Cross-Camera Correlation (in drawer)
+![Cross-Camera Correlation](nemoclaw/docs/screenshots/correlation.png)
 
-> 👉 **Screenshot pending**: `nemoclaw/docs/screenshots/wall.png` (full-screen wall mode, 4×4 dark theme)
+> 👉 **Screenshot pending**: `nemoclaw/docs/screenshots/correlation.png` (expand "Event Records & Tech Evidence" → 🌐 Cross-Camera Correlation panel)
 
 ### OpenShell Sandbox 3-Source Cross-Verification
 ![3-Source Cross-Verification](nemoclaw/docs/screenshots/followup.png)
@@ -118,7 +118,7 @@ Environment check: `bash nemoclaw/demo_prep.sh` (3-step preflight)
 
 ```
 nemoclaw/
-  dashboard/app.py              N×N wall + live events + audit dashboard (:8099 + /wall)
+  dashboard/app.py              N×N wall + live events + audit dashboard (:8099)
   orchestrator.py               R2 cascade orchestrator (sweep→Nemotron→Hermes→policy→followup)
   sweep.py                      LocateAnything visual grounding cheap-gate sweep
   nemoclaw_triage.py            Real NemoClaw Hermes triage (:8642)

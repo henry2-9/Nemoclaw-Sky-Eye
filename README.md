@@ -31,10 +31,10 @@
 > 👉 **截圖待補**:`nemoclaw/docs/screenshots/home.png`(主頁 N×N 監控牆 + 右側 📡 即時事件)
 > 暫時參考 `home-legacy.png`(舊版主視角布局,主題一致)
 
-### 全螢幕監控牆:`/wall?layout=16`
-![Surveillance Wall](nemoclaw/docs/screenshots/wall.png)
+### 🌐 跨地標關聯偵測(drawer 內)
+![Cross-Camera Correlation](nemoclaw/docs/screenshots/correlation.png)
 
-> 👉 **截圖待補**:`nemoclaw/docs/screenshots/wall.png`(全螢幕監控牆模式,4×4 暗色)
+> 👉 **截圖待補**:`nemoclaw/docs/screenshots/correlation.png`(展開「事件紀錄與技術證據」 → 🌐 跨地標關聯偵測 panel)
 
 ### OpenShell sandbox 3 源跨來源驗證
 ![3-Source Cross-Verification](nemoclaw/docs/screenshots/followup.png)
@@ -115,7 +115,7 @@ python3 nemoclaw/dashboard/app.py         # http://localhost:8099
 
 ```
 nemoclaw/
-  dashboard/app.py              N×N 監控牆 + 即時事件 + 治理稽核(:8099 + /wall)
+  dashboard/app.py              N×N 監控牆 + 即時事件 + 治理稽核(:8099)
   orchestrator.py               R2 級聯編排(sweep→Nemotron→Hermes→policy→followup)
   sweep.py                      LocateAnything 視覺定位 cheap-gate sweep
   nemoclaw_triage.py            真 NemoClaw Hermes triage(:8642)
