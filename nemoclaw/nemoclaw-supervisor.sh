@@ -22,9 +22,18 @@ while true; do
   python3 nemoclaw/watchdog.py --once >>"$LOG" 2>&1 || true
   cycle_no=$((cycle_no + 1))
   if [ "${NEMOCLAW_DISCOVERY_ENABLED:-0}" = "1" ] \
-      && [[ "${NEMOCLAW_CHANNELS_FILE:-}" == *"/landmarks.yaml" ]] \
       && [ $((cycle_no % ${NEMOCLAW_DISCOVERY_EVERY_CYCLES:-20})) -eq 0 ]; then
-    python3 nemoclaw/nemoclaw-discover --max "${NEMOCLAW_DISCOVERY_MAX_NEW:-1}" >>"$LOG" 2>&1 || true
+    discovery_profile="${NEMOCLAW_DISCOVERY_PROFILE:-}"
+    if [ -z "$discovery_profile" ]; then
+      case "${NEMOCLAW_CHANNELS_FILE:-}" in
+        */world_channels.yaml) discovery_profile="traffic" ;;
+        */landmarks.yaml) discovery_profile="landmark" ;;
+      esac
+    fi
+    if [ -n "$discovery_profile" ]; then
+      python3 nemoclaw/nemoclaw-discover --profile "$discovery_profile" \
+        --max "${NEMOCLAW_DISCOVERY_MAX_NEW:-1}" >>"$LOG" 2>&1 || true
+    fi
   fi
   out=$(timeout "$CYCLE_TIMEOUT" ./nemoclaw/nemoclaw-cycle 2>>"$LOG")
   rc=$?

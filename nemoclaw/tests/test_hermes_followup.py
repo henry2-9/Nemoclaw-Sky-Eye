@@ -52,7 +52,7 @@ def test_run_pipeline_with_mocks(tmp_path, monkeypatch):
         return "時間正常,無異常。"
 
     incident = {"trace_id": "t1", "channel": "201", "event_type": "fire_smoke",
-                "severity": "high", "summary": "濃煙"}
+                "severity": "high", "summary": "濃煙", "trigger_origin": "demo_manual"}
     out = hf.run(incident, plan_fn=fake_plan, exec_fn=fake_exec, conclude_fn=fake_conclude)
     assert out is not None
     assert out["channel"] == "201"
@@ -60,6 +60,7 @@ def test_run_pipeline_with_mocks(tmp_path, monkeypatch):
     assert out["commands"][0]["stdout"] == "Wed May 27 13:00:00 UTC 2026"
     assert out["conclusion"] == "時間正常,無異常。"
     assert out["governed_by"] == "nemoclaw-openshell-sandbox"
+    assert out["trigger_origin"] == "demo_manual"
     # persisted
     items = hf.latest(5)
     assert len(items) == 1

@@ -17,7 +17,7 @@ EVENT_QUERY = {
     "intrusion": "person",
     "abnormal_crowd": "person",
     "abnormal_weather": "flood, fallen tree, smoke, fire",
-    "traffic": "fire, smoke, person, car, truck, motorcycle",
+    "traffic": "fire, smoke, person, car, truck, bus, motorcycle, bicycle",
     "security_anomaly": "fire, smoke, bag, suitcase, person",
 }
 

@@ -42,6 +42,15 @@ def test_traffic_normal_vehicle_does_not_wake_nemotron(monkeypatch, tmp_path):
     assert sweep.sweep_channels([chan]) == []
 
 
+def test_traffic_query_includes_intersection_vehicle_types():
+    query, keys, _ = sweep.RULES["traffic"]
+
+    assert "bus" in query
+    assert "bicycle" in query
+    assert "bus" in keys
+    assert "bicycle" in keys
+
+
 def test_security_anomaly_promotes_fire_on_landmark(monkeypatch, tmp_path):
     monkeypatch.setenv("NEMOCLAW_BASELINE_PATH", str(tmp_path / "b.json"))
     monkeypatch.setenv("NEMOCLAW_FEED_HEALTH_PATH", str(tmp_path / "h.json"))

@@ -15,8 +15,8 @@ RULES = {
     "abnormal_weather":("flood, smoke, fire, fallen tree", ["flood","fallen tree","smoke","fire"], 1),
     "security_anomaly":("fire, smoke, bag, suitcase, person", ["fire","smoke","bag","suitcase","person"], 1),
     # 世界交通鏡頭以跨輪基線濾掉正常車流,不再把「看到任何車」當事故。
-    "traffic":         ("fire, smoke, person, car, truck, motorcycle",
-                        ["fire","smoke","person","car","truck","motorcycle"], 1),
+    "traffic":         ("fire, smoke, person, car, truck, bus, motorcycle, bicycle",
+                        ["fire","smoke","person","car","truck","bus","motorcycle","bicycle"], 1),
 }
 
 def _hit(counts, keys, threshold):
@@ -29,7 +29,7 @@ def _traffic_anomaly(channel, counts):
         return True, "fire/smoke"
     people = int(counts.get("person", 0))
     people_anom, _ = _baseline.update_and_check(channel, "road_person", people, floor=3)
-    vehicles = sum(int(counts.get(k, 0)) for k in ("car", "truck", "motorcycle"))
+    vehicles = sum(int(counts.get(k, 0)) for k in ("car", "truck", "bus", "motorcycle", "bicycle"))
     traffic_anom, _ = _baseline.update_and_check(channel, "vehicles", vehicles, floor=6)
     return (people_anom or traffic_anom), ("person spike" if people_anom else "vehicle density spike")
 

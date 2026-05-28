@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""自主地標探索:不再由人指定 16 路——agent 自己上 YouTube 搜尋候選直播,
-yt-dlp 解 HLS + ffmpeg 抓 1 幀做存活驗證,Nemotron 看畫面判定「是否為著名地標」,
-通過則加入 discovered.yaml 並登錄 sqlite。Sweep 下一輪自動包含。
+"""自主攝影機探索:agent 自己上 YouTube 搜尋候選直播,
+yt-dlp 解 HLS + ffmpeg 抓 1 幀做存活驗證,Nemotron 看畫面判定是否符合 profile。
+
+profile=landmark 找城市地標/公共場域,通過則加入 discovered.yaml。
+profile=traffic 找世界各地路口/道路監視器,通過則加入 discovered_traffic.yaml。
+Sweep 下一輪在對應來源檔啟用 discovery 時自動包含。
 
 每一步都記到 thoughts.jsonl(source=discover),讓「天眼自己找天眼」看得見。"""
 import base64
@@ -15,16 +18,36 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import thoughts as _thoughts
 
-SEARCH_QUERIES = (
+LANDMARK_SEARCH_QUERIES = (
     "city street live webcam 24/7",
     "downtown live cam plaza square",
     "transit station airport live cam",
     "tourist landmark live surveillance",
 )
+TRAFFIC_SEARCH_QUERIES = (
+    "live traffic camera intersection 24/7",
+    "city intersection live cam traffic light",
+    "downtown traffic webcam road intersection live",
+    "public traffic CCTV live street camera",
+    "live road camera intersection crosswalk",
+    "Tokyo Shibuya crossing live cam 24/7",
+    "London traffic intersection live cam",
+    "New York Manhattan street live cam",
+    "San Francisco intersection live cam 24/7",
+    "Seoul Gangnam intersection live cam",
+    "Singapore traffic live cam",
+    "Berlin street live cam intersection",
+    "Paris boulevard live cam traffic",
+    "Sydney CBD intersection live cam",
+    "highway live cam 24/7 traffic",
+)
 
 DISCOVERED_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "discovered.yaml")
+DISCOVERED_TRAFFIC_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "discovered_traffic.yaml")
 LANDMARKS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "landmarks.yaml")
+WORLD_CHANNELS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "world_channels.yaml")
 START_ID = 220   # discovered 從 ch220 起算(landmarks.yaml 用 201-219)
+TRAFFIC_START_ID = 120   # world_channels.yaml 目前使用 ch101-106
 
 
 def yt_search(query, n=8):
@@ -130,6 +153,31 @@ def score_landmark(frame_path, title="", vlm_fn=None):
             str(d.get("name") or title)[:80])
 
 
+def score_traffic_camera(frame_path, title="", vlm_fn=None):
+    """Nemotron 看畫面 + 標題,判定是否為可巡檢的路口/道路公開監視器。
+    回 (is_traffic_camera: bool, confidence: float, name: str)。"""
+    vlm_fn = vlm_fn or vlm_image_text
+    q = (f"影片標題:{title}\n"
+         "你看見的是 live 攝影機的一幀。請判斷它是否適合作為**世界路口/道路交通安全監控**來源。"
+         "合格條件:畫面主要是公共道路、路口、斑馬線、號誌、車道、橋梁或高速道路,可長時間觀察車流/行人/事故。"
+         "優先收:intersection/crosswalk/traffic light/downtown street/highway CCTV。"
+         "拒收:純地標觀光、室內、自然風景、海灘、滑雪場、動物、太空、新聞剪輯、非 live、遊戲畫面、畫面太模糊。"
+         "若只是地標遠景且看不清道路/路口,也拒收。"
+         "只輸出一行 JSON:"
+         '{"is_traffic_camera": true 或 false, "name": "繁中具體地點或路口名稱", "confidence": 0-1}')
+    ans = vlm_fn(frame_path, q)
+    m = re.search(r"\{.*\}", ans or "", re.DOTALL)
+    if not m:
+        return False, 0.0, title or ""
+    try:
+        d = json.loads(m.group(0))
+    except Exception:
+        return False, 0.0, title or ""
+    return (bool(d.get("is_traffic_camera")),
+            float(d.get("confidence") or 0),
+            str(d.get("name") or title)[:80])
+
+
 def _load_yaml(path):
     if not os.path.exists(path):
         return {"channels": []}
@@ -150,9 +198,9 @@ def _save_yaml(path, doc):
 
 
 def existing_urls():
-    """已知 URL 集合(landmarks.yaml + discovered.yaml + sqlite channels)。"""
+    """已知 URL 集合(landmarks/world/discovered + sqlite channels)。"""
     urls = set()
-    for p in (LANDMARKS_PATH, DISCOVERED_PATH):
+    for p in (LANDMARKS_PATH, WORLD_CHANNELS_PATH, DISCOVERED_PATH, DISCOVERED_TRAFFIC_PATH):
         for c in _load_yaml(p).get("channels", []):
             if c.get("url"):
                 urls.add(c["url"])
@@ -167,10 +215,12 @@ def existing_urls():
     return urls
 
 
-def _next_id():
-    """從 discovered.yaml + sqlite 找下一個未用 id(≥ START_ID)。"""
-    used = {int(c["id"]) for c in _load_yaml(DISCOVERED_PATH).get("channels", [])
-            if c.get("id") is not None}
+def _next_id(profile="landmark"):
+    """從 yaml + sqlite 找下一個未用 id。"""
+    used = set()
+    for p in (LANDMARKS_PATH, WORLD_CHANNELS_PATH, DISCOVERED_PATH, DISCOVERED_TRAFFIC_PATH):
+        used.update(int(c["id"]) for c in _load_yaml(p).get("channels", [])
+                    if c.get("id") is not None)
     try:
         import db_factory
         for row in db_factory.channel_db().get_all_channels():
@@ -179,37 +229,63 @@ def _next_id():
                 used.add(int(cid))
     except Exception:
         pass
-    n = START_ID
+    n = TRAFFIC_START_ID if profile == "traffic" else START_ID
     while n in used:
         n += 1
     return n
 
 
-def _register(entry):
+def _register(entry, profile="landmark"):
     """寫入 discovered.yaml + sqlite。entry={id,name,url,event_type}。"""
-    doc = _load_yaml(DISCOVERED_PATH)
+    path = DISCOVERED_TRAFFIC_PATH if profile == "traffic" else DISCOVERED_PATH
+    doc = _load_yaml(path)
     doc.setdefault("channels", []).append(entry)
-    _save_yaml(DISCOVERED_PATH, doc)
+    _save_yaml(path, doc)
     try:
         import db_factory
         db = db_factory.channel_db()
         if hasattr(db, "add_stream_channel"):
-            db.add_stream_channel(entry["name"], entry["url"], entry["id"], "天眼-探索")
+            location = "天眼-交通探索" if profile == "traffic" else "天眼-地標探索"
+            db.add_stream_channel(entry["name"], entry["url"], entry["id"], location)
     except Exception:
         pass
 
 
-def discover(max_new=3, vlm_fn=None, search_fn=None, validate_fn=None, score_fn=None):
+def _profile_config(profile):
+    if profile == "traffic":
+        return {
+            "queries": TRAFFIC_SEARCH_QUERIES,
+            "score_fn": score_traffic_camera,
+            "event_type": "traffic",
+            "suffix": "交通探索",
+            "target": "世界路口/道路監視器",
+            "discovered_path": DISCOVERED_TRAFFIC_PATH,
+        }
+    return {
+        "queries": LANDMARK_SEARCH_QUERIES,
+        "score_fn": score_landmark,
+        "event_type": "security_anomaly",
+        "suffix": "自主發現",
+        "target": "城市地標/公共場域",
+        "discovered_path": DISCOVERED_PATH,
+    }
+
+
+def discover(max_new=3, vlm_fn=None, search_fn=None, validate_fn=None, score_fn=None, profile="landmark"):
     """自主探索:搜尋→驗證→評分→註冊。回新加入的 list[entry]。
     所有依賴皆可注入,方便單元測試。"""
+    if profile not in ("landmark", "traffic"):
+        raise ValueError(f"unknown discovery profile: {profile}")
+    cfg = _profile_config(profile)
     search_fn = search_fn or yt_search
     validate_fn = validate_fn or validate
-    score_fn = score_fn or score_landmark
+    score_fn = score_fn or cfg["score_fn"]
     known = existing_urls()
-    _thoughts.record(f"我要自己上 YouTube 找新地標(目標 {max_new} 路;已知 {len(known)} 路)", source="discover")
+    _thoughts.record(f"我要自己上 YouTube 找新{cfg['target']}(目標 {max_new} 路;已知 {len(known)} 路)",
+                     source="discover")
     seen = set()
     candidates = []
-    for q in SEARCH_QUERIES:
+    for q in cfg["queries"]:
         for r in search_fn(q, n=6):
             u = r.get("url")
             if not u or u in known or u in seen:
@@ -231,13 +307,13 @@ def discover(max_new=3, vlm_fn=None, search_fn=None, validate_fn=None, score_fn=
     scored.sort(key=lambda x: -x["score"])
     added = []
     for s in scored[:max_new]:
-        eid = _next_id()
-        entry = {"id": eid, "name": f"{s['name'][:36]} · 自主發現",
-                 "url": s["url"], "event_type": "security_anomaly"}
-        _register(entry)
+        eid = _next_id(profile)
+        entry = {"id": eid, "name": f"{s['name'][:36]} · {cfg['suffix']}",
+                 "url": s["url"], "event_type": cfg["event_type"]}
+        _register(entry, profile=profile)
         added.append(entry)
         _thoughts.record(
-            f"發現新天眼地標:{entry['name']}(信心 {s['score']:.2f})→ ch{eid} 加入巡檢",
+            f"發現新天眼來源:{entry['name']}(profile={profile};信心 {s['score']:.2f})→ ch{eid} 加入巡檢",
             source="discover")
     if not added:
         _thoughts.record(f"這輪找到 {len(scored)} 個合格候選但都已在巡檢中或不夠強,沒新增", source="discover")
@@ -246,11 +322,15 @@ def discover(max_new=3, vlm_fn=None, search_fn=None, validate_fn=None, score_fn=
 
 def main():
     import argparse
-    p = argparse.ArgumentParser(description="自主地標探索(讓 agent 自己找新天眼)")
+    p = argparse.ArgumentParser(description="自主攝影機探索(讓 agent 自己找新天眼)")
     p.add_argument("--max", type=int, default=3, help="本次最多新增幾路")
+    p.add_argument("--profile", choices=("landmark", "traffic"),
+                   default=os.environ.get("NEMOCLAW_DISCOVERY_PROFILE", "landmark"),
+                   help="landmark=地標/公共場域; traffic=世界路口/道路監視器")
     args = p.parse_args()
-    added = discover(max_new=args.max)
-    print(json.dumps({"added": len(added), "channels": added}, ensure_ascii=False, indent=2))
+    added = discover(max_new=args.max, profile=args.profile)
+    print(json.dumps({"profile": args.profile, "added": len(added), "channels": added},
+                     ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

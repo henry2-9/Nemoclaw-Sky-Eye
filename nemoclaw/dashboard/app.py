@@ -144,6 +144,8 @@ code{color:#a7f3d0;background:rgba(255,255,255,.06);padding:1px 6px;border-radiu
 .status{display:flex;gap:15px;flex-wrap:wrap;font-size:12.5px;color:#c7cdf0;align-items:center}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;
   background:#34d399;box-shadow:0 0 9px #34d399;animation:pulse 2.4s infinite}
+.dot.off{background:#f87171;box-shadow:0 0 9px #f87171;animation:none}
+.dot.unknown{background:#94a3b8;box-shadow:none;animation:none}
 @keyframes pulse{50%{opacity:.45}}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin-bottom:18px}
 .tile{padding:17px 18px;position:relative;overflow:hidden}
@@ -179,6 +181,7 @@ tbody tr:hover{background:rgba(255,255,255,.045)} tbody tr:last-child td{border-
   border:1px solid #253039;border-radius:8px;overflow:hidden;margin:16px 0}
 .op{background:#10171c;padding:12px 15px}.op-label{display:block;color:#8d9aa3;font-size:11px;margin-bottom:5px}
 .op strong{font-size:17px;color:#eef4f4}.op strong.good{color:#47db9a}
+.op-note{font-size:11px;color:#8d9aa3;margin-top:4px}
 .drill video{display:block;width:100%;height:auto;aspect-ratio:16/10;max-height:none;object-fit:cover;border-radius:6px}
 .drill-result{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
 .drill-result div{padding:9px 8px;background:#151e24;border-radius:6px;text-align:center}
@@ -272,6 +275,13 @@ details.audit-more table{font-size:12.5px}
 .fu-foot .plan-auto{color:#86efac;background:rgba(34,197,94,.1);padding:2px 7px;border-radius:6px}
 .fu-foot .plan-fallback{color:#fbbf24;background:rgba(245,158,11,.1);padding:2px 7px;border-radius:6px}
 .fu-foot .plan-multi{color:#c4b5fd;background:rgba(139,92,246,.1);padding:2px 7px;border-radius:6px}
+.tag-unlinked{background:#292f35;color:#cbd5e1;border:1px solid #46515b}
+.fu-warning{color:#fbbf24;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.30);
+  border-radius:6px;padding:7px 9px;margin:8px 0;font-size:12px}
+.fu-unlinked{margin-top:12px}
+.fu-unlinked summary{cursor:pointer;color:#cbd5e1;font-size:13px;padding:8px 10px;
+  background:rgba(255,255,255,.04);border-radius:6px;list-style:none}
+.fu-unlinked[open] summary{margin-bottom:10px}
 .fu-verdict{margin:8px 0;background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px}
 .fu-verdict .vr{font-size:12.5px;line-height:1.65;padding:2px 0}
 .fu-verdict .vr-confirm{color:#86efac}
@@ -469,8 +479,10 @@ def _health_dots(health):
         return "<span class=muted>服務狀態未知</span>"
     out = []
     for k, label in (("nemotron", "Nemotron"), ("falcon", "Falcon"), ("nemoclaw", "NemoClaw")):
-        up = health.get(k) == "up"
-        out.append(f"<span><span class='dot{'' if up else ' off'}'></span>{label}</span>")
+        state = health.get(k)
+        cls = "" if state == "up" else (" off" if state == "down" else " unknown")
+        suffix = "" if state == "up" else (" 異常" if state == "down" else " 未知")
+        out.append(f"<span><span class='dot{cls}'></span>{label}{suffix}</span>")
     return "".join(out)
 
 
@@ -488,20 +500,31 @@ def _cascade_html():
 
 
 def _render_command_center(rows, health=None):
-    scheduled = sum(1 for r in rows if r.get("trigger_origin") == "scheduled")
+    live_rows = [r for r in rows if r.get("trigger_origin") == "scheduled"]
+    scheduled = len(live_rows)
     demos = sum(1 for r in rows if r.get("trigger_origin") == "demo_manual")
     uptime = _uptime_str()
     health = health if health is not None else _health_now()
-    tlabel, tcolor = _threat(rows)
+    now = time.time()
+    active_live = [r for r in live_rows if r.get("decision") == "ALLOW"
+                   and (now - r.get("ts", 0)) <= 3600]
+    live_label, live_color = (_threat(active_live, now=now) if active_live
+                              else ("無現行警報", "#34d399"))
+    demo = _latest_demo_row(rows)
+    demo_label = _sev_zh(demo.get("severity")) if demo else "—"
+    demo_color = _THREAT[_SEV_RANK.get((demo or {}).get("severity"), 0)][1]
+    demo_ts = str((demo or {}).get("ts_iso", "")).replace("T", " ")[:16] or "尚無演練"
     service_ok = all(health.get(k) == "up" for k in ("nemotron", "falcon", "nemoclaw")) if health else False
-    service = "正常" if service_ok else "檢查中"
-    service_cls = "good" if service_ok else ""
+    service = "正常" if service_ok else ("異常" if health else "未知")
+    service_cls = "good" if service_ok else ("bad" if health else "")
     return f"""<section class=ops>
   <div class=op><span class=op-label>服務</span><strong class='{service_cls}'>{service}</strong></div>
   <div class=op><span class=op-label>處置模式</span><strong class=good>自動</strong></div>
   <div class=op><span class=op-label>運行時間</span><strong>{uptime}</strong></div>
-  <div class=op><span class=op-label>LIVE 確認事件</span><strong>{scheduled}</strong></div>
-  <div class=op><span class=op-label>攻擊演練</span><strong style='color:{tcolor}'>{demos} · {tlabel}</strong></div>
+  <div class=op><span class=op-label>LIVE 狀態</span><strong style='color:{live_color}'>{live_label}</strong>
+    <div class=op-note>累計確認 {scheduled} 起</div></div>
+  <div class=op><span class=op-label>TEST 最近結果</span><strong style='color:{demo_color}'>{demo_label}</strong>
+    <div class=op-note>{html.escape(demo_ts)} · 共 {demos} 筆</div></div>
 </section>"""
 
 
@@ -538,7 +561,7 @@ def _render_sky_eye_grid(selected_channel=None):
         return ""
     source_name = {
         "landmarks.yaml": "地標天眼牆",
-        "world_channels.yaml": "國道即時來源",
+        "world_channels.yaml": "世界路口交通來源",
         "channels.yaml": "本地 Replay",
     }.get(os.path.basename(active_file), "已設定來源")
     entries = []
@@ -692,16 +715,20 @@ def _render_verdict_lines(text):
     return "".join(out_rows)
 
 
-def _render_followups():
+def _render_followups(audit_rows=None):
     if not _followup:
         return ""
+    audit_by_trace = {r.get("trace_id"): r for r in (audit_rows or []) if r.get("trace_id")}
     items = _followup.latest(5)
     if not items:
         body = ("<div class=empty>無 sandbox 二次調查(等待 high/critical 事件觸發)</div>")
     else:
         cards = []
+        unlinked = []
         for f in items:
-            ts = (f.get("ts_iso") or "")[-8:]
+            audit_row = audit_by_trace.get(f.get("trace_id"), {})
+            origin = f.get("trigger_origin") or audit_row.get("trigger_origin")
+            ts = (f.get("ts_iso") or "時間未知").replace("T", " ")
             elapsed = f.get("elapsed_ms", 0)
             cmds_html = ""
             for c in (f.get("commands") or [])[:3]:
@@ -719,19 +746,40 @@ def _render_followups():
             src_badge = src_badge_map.get(plan_src, src_badge_map["multi-source-recipe"])
             loc = f.get("channel_name") or f"ch{f.get('channel','')}"
             verdict_html = _render_verdict_lines(f.get("conclusion") or "")
-            cards.append(
+            origin_badge = {
+                "scheduled": "<span class='tag tag-live'>LIVE 觸發</span>",
+                "demo_manual": "<span class='tag tag-test'>TEST 受控演練</span>",
+            }.get(origin, "<span class='tag tag-unlinked'>未連結</span>")
+            warning = ("" if origin else
+                       "<div class=fu-warning>未連結 LIVE/TEST 事件，不代表目前告警狀態。</div>")
+            trace_html = ""
+            if audit_row:
+                q = urllib.parse.urlencode({"trace_id": f.get("trace_id", "")})
+                trace_html = f"<a href='/trace?{q}'>查看證據鏈</a>"
+            card = (
                 f"<div class=fu-card>"
-                f"<div class=fu-head><span class=ch>🛰 {html.escape(loc)} · "
+                f"<div class=fu-head><span class=ch>{origin_badge} 🛰 {html.escape(loc)} · "
                 f"{html.escape(f.get('event_type',''))} "
                 f"({_sev_zh(f.get('severity'))})</span>"
                 f"<span class=muted style='font-size:11.5px'>{html.escape(ts)} · {elapsed}ms</span></div>"
+                f"{warning}"
                 f"<div class=fu-verdict>{verdict_html}</div>"
                 f"<div class=fu-cmds>{cmds_html}</div>"
                 f"<div class=fu-foot>{src_badge}<span class=gov>🛡 OpenShell 沙箱治理</span>"
-                f"<span>· {len(f.get('commands') or [])} 個獨立來源 · 真上網爬公共 API</span></div>"
-                f"</div>")
-        body = f"<div class=fu-grid>{''.join(cards)}</div>"
-    return (f"<section class='panel glass'><h3>🛰 OpenShell 沙箱二次調查 "
+                f"<span>· {len(f.get('commands') or [])} 個獨立來源 · 真上網爬公共 API</span>"
+                f"{trace_html}</div></div>")
+            if origin:
+                cards.append(card)
+            else:
+                unlinked.append(card)
+        linked_body = (f"<div class=fu-grid>{''.join(cards)}</div>" if cards else
+                       "<div class=empty>無已標示來源的二次調查事件</div>")
+        archive = (
+            f"<details class=fu-unlinked><summary>未連結事件紀錄 {len(unlinked)} 筆 · "
+            f"不代表 LIVE 現況</summary><div class=fu-grid>{''.join(unlinked)}</div></details>"
+            if unlinked else "")
+        body = linked_body + archive
+    return (f"<section class='panel glass'><h3>🛰 OpenShell 沙箱二次調查紀錄 "
             f"<span class=muted style='font-size:11px;font-weight:400'>"
             f"Hermes 自主規劃 read-only 指令 → 跑沙箱 → 寫結論</span></h3>{body}</section>")
 
@@ -764,9 +812,11 @@ def _render_attack_scene(rows):
                 "</section>")
     urls = (r.get("media_artifacts") or {}).get("urls") or {}
     clip = urls.get("clip") or ""
+    poster = urls.get("frame") or urls.get("falcon_annotated") or ""
     sev = _sev_zh(r.get("severity"))
     q = urllib.parse.urlencode({"trace_id": r.get("trace_id", "")})
-    video_html = (f"<video controls autoplay muted loop playsinline preload='metadata' "
+    poster_attr = f" poster='{html.escape(poster)}'" if poster else ""
+    video_html = (f"<video controls muted loop playsinline preload='metadata'{poster_attr} "
                   f"src='{html.escape(clip)}'></video>" if clip else "<div class=empty>無錄影切片</div>")
     blocked = "已阻擋" if r.get("injection_detected") else "未標記"
     action = "已升級" if r.get("escalated") else "已判定"
@@ -937,7 +987,7 @@ class H(BaseHTTPRequestHandler):
         thoughts_panel = _render_thoughts()
         attack_scene = _render_attack_scene(rows)
         status_html = (_health_dots(health)
-                       + "<span class=muted>每 5s 更新</span>")
+                       + "<span class=muted>每 5s 更新 · 檢視時暫停</span>")
         dist = " ".join(
             f"<span class='badge {cls}'>{name} {s[name]}</span>"
             for name, cls in (("ALLOW", "b-allow"), ("BLOCK", "b-block"),
@@ -969,9 +1019,9 @@ class H(BaseHTTPRequestHandler):
             if rest_count > 0 else "")
         attack_matrix = _render_attack_matrix()
         correlation_panel = _render_correlation()
-        followups_panel = _render_followups()
+        followups_panel = _render_followups(rows)
         html = f"""<!doctype html><html lang=zh-Hant><head><meta charset=utf-8>
-<meta http-equiv=refresh content=5><title>NemoClaw Sentinel</title>
+<title>NemoClaw Sentinel</title>
 <style>{STYLE}</style></head><body><div class=wrap>
 <header class='head glass'>
   <div><div class=brand>NEMOCLAW · SKY EYE</div>
@@ -992,7 +1042,14 @@ class H(BaseHTTPRequestHandler):
 <table><thead><tr><th>時間</th><th>Ch</th><th>類型</th><th>決策</th><th>治理</th><th>注入</th><th>動作</th><th>Flight</th><th>媒體</th><th>理由</th></tr></thead>
 <tbody>{items}</tbody></table>{audit_expand}</section>
 </details>
-</div></body></html>"""
+</div><script>
+window.setInterval(() => {{
+  const videoPlaying = Array.from(document.querySelectorAll("video"))
+    .some(video => !video.paused && !video.ended);
+  const reading = document.querySelector("details[open]") || window.scrollY > 40;
+  if (!document.hidden && !videoPlaying && !reading) window.location.reload();
+}}, 5000);
+</script></body></html>"""
         self._send_html(html)
 
     def _send_html(self, body):

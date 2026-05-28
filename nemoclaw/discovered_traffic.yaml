@@ -1,0 +1,9 @@
+channels:
+- id: 120
+  name: I-90 at 84th St, Looking N, E, W · 交通探索
+  url: https://www.youtube.com/watch?v=_KBbVB62xU4
+  event_type: traffic
+- id: 121
+  name: Melbourne City Intersection · 交通探索
+  url: https://www.youtube.com/watch?v=gEbrHdFRgpQ
+  event_type: traffic

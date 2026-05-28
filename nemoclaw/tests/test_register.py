@@ -39,14 +39,21 @@ def test_register_updates_existing_stream_source_when_supported():
     assert calls == [(201, "Times Square", "https://x", "NemoClaw Sentinel")]
 
 
-def test_discovered_channels_only_merge_into_landmarks(tmp_path):
-    discovered = """channels:
+def test_discovered_channels_merge_by_profile(tmp_path):
+    discovered_landmarks = """channels:
   - id: 220
-    name: discovered
-    url: https://example/live
+    name: discovered landmark
+    url: https://example/landmark
     event_type: abnormal_crowd
 """
-    (tmp_path / "discovered.yaml").write_text(discovered, encoding="utf-8")
+    discovered_traffic = """channels:
+  - id: 120
+    name: discovered intersection
+    url: https://example/traffic
+    event_type: security_anomaly
+"""
+    (tmp_path / "discovered.yaml").write_text(discovered_landmarks, encoding="utf-8")
+    (tmp_path / "discovered_traffic.yaml").write_text(discovered_traffic, encoding="utf-8")
     main = """channels:
   - id: 1
     name: primary
@@ -59,7 +66,8 @@ def test_discovered_channels_only_merge_into_landmarks(tmp_path):
     world = rc.load_channels(str(tmp_path / "world_channels.yaml"), merge_discovered=True)
     landmarks = rc.load_channels(str(tmp_path / "landmarks.yaml"), merge_discovered=True)
 
-    assert [c["id"] for c in world] == [1]
+    assert [c["id"] for c in world] == [1, 120]
+    assert world[1]["event_type"] == "traffic"
     assert [c["id"] for c in landmarks] == [1, 220]
     assert landmarks[1]["event_type"] == "security_anomaly"
 

@@ -1,6 +1,7 @@
-# 世界公開直播攝影機 —— 台灣國道 CCTV(公開政府交通攝影機,MJPEG)
+# 世界公開路口/道路直播攝影機 —— 內建台灣國道 CCTV 範例(公開政府交通攝影機,MJPEG)
 # 資源節省:每週期每路只抓「1 幀」即關閉連線,不連續解碼。
 # 要新增攝影機:加一筆 url 即可(任何 ffmpeg 可讀的 rtsp/http(s)/HLS 串流皆可)。
+# agent 自主探索會把路口/道路 live cam 寫入 discovered_traffic.yaml;啟用 discovery 時自動合併。
 # 啟用方式:export NEMOCLAW_CHANNELS_FILE=$NEMOCLAW_DIR/world_channels.yaml
 channels:
   - { id: 101, name: "國道CCTV-10001", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10001", event_type: traffic }

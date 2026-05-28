@@ -137,10 +137,10 @@ nemoclaw/nemoclaw-flight-recorder --latest 3
 |---|---|---|
 | 全球地標(預設) | `landmarks.yaml` | live 來源;火煙/可疑物/人群偏離升級至 Nemotron |
 | 本地 replay | `channels.yaml` | 4 類危害各 4 部影片,供重現與評測 |
-| 國道公開攝影機 | `world_channels.yaml` | 台灣國道 live MJPEG;火煙或交通量偏離基線才升級 |
+| 世界路口/道路公開攝影機 | `world_channels.yaml` | 公開道路/路口 live 來源;火煙或交通/行人量偏離基線才升級 |
 
 ```bash
-# 切換到世界公開攝影機
+# 切換到世界路口/道路公開攝影機
 export NEMOCLAW_CHANNELS_FILE=$NEMOCLAW_DIR/world_channels.yaml
 export NEMOCLAW_MAX_PER_CYCLE=2          # live 較慢,每輪少查幾路
 python3 nemoclaw/register_channels.py    # url channel 直接插入,不需本地檔
@@ -148,8 +148,14 @@ python3 nemoclaw/register_channels.py    # url channel 直接插入,不需本地
 
 新增攝影機:在 `world_channels.yaml` 加一筆 `url`(任何 ffmpeg 可讀的 rtsp / http(s) / HLS 串流)。
 `feed.grab_frame` 與 `sentinel-analyze-video` 會把 URL 視為 live 串流,抓當前幀即關閉連線。
-若要讓 agent 定期搜尋並納入新的地標來源,在使用 `landmarks.yaml` 時設定
-`NEMOCLAW_DISCOVERY_ENABLED=1`;探索結果不會混入 `world_channels.yaml`。
+若要讓 agent 定期搜尋並納入新來源,設定 `NEMOCLAW_DISCOVERY_ENABLED=1`:
+- 使用 `landmarks.yaml` 時預設 `profile=landmark`,結果寫入 `discovered.yaml`。
+- 使用 `world_channels.yaml` 時預設 `profile=traffic`,agent 會搜尋 **intersection / traffic light / public traffic CCTV** 這類 live cam,結果寫入 `discovered_traffic.yaml` 並以 `traffic` 規則巡檢。
+
+手動觸發交通來源探索:
+```bash
+python3 nemoclaw/nemoclaw-discover --profile traffic --max 2
+```
 預設 `NEMOCLAW_DISCOVERY_ENABLED=0`,正式展示只顯示人工核驗過的六路地標,避免歷史探索結果地點誤標或臨時失效。
 使用 `landmarks.yaml` 時 Dashboard 第一段為地標天眼牆,每個縮圖均來自該路最近一次成功巡檢後的遮罩快照。
 
@@ -171,6 +177,7 @@ sudo journalctl -u nemoclaw-sentinel -f        # 即時記錄
 Environment=NEMOCLAW_CHANNELS_FILE=/path/Security-AI-Agent/nemoclaw/world_channels.yaml
 Environment=NEMOCLAW_INTERVAL=180        # 每輪之間隔秒數(預設 30)
 Environment=NEMOCLAW_MAX_PER_CYCLE=2
+Environment=NEMOCLAW_DISCOVERY_ENABLED=1 # 選用:定期自找路口/道路 live cam
 ```
 > 開機自啟 + 崩潰自重啟。注意:世界 live 攝影機一輪本身約數分鐘(MJPEG 抓幀慢),**實際週期 = 輪時間 + 間隔**。
 > `nemoclaw-supervisor.sh` 使用單例鎖;已啟用 systemd 時不要另開第二份 `nohup` supervisor。

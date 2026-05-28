@@ -250,6 +250,7 @@ def run(incident, plan_fn=None, exec_fn=None, conclude_fn=None):
         "channel_name": incident.get("channel_name"),
         "event_type": incident.get("event_type"),
         "severity": incident.get("severity"),
+        "trigger_origin": incident.get("trigger_origin"),
         "rationale": p.get("rationale", ""),
         "commands": results,
         "conclusion": text,

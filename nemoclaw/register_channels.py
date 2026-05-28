@@ -28,15 +28,23 @@ def load_channels(yaml_path, merge_discovered=False):
         else:
             c["path"] = os.path.abspath(os.path.join(vdir, c["file"]))
         out.append(c); seen_ids.add(c["id"])
-    # 自主發現的地標只合併至地標巡檢；不得污染獨立的國道/本地評測來源。
-    if merge_discovered and os.path.basename(os.path.abspath(yaml_path)) == "landmarks.yaml":
-        discovered_path = os.path.join(os.path.dirname(os.path.abspath(yaml_path)), "discovered.yaml")
+    # 自主發現來源只合併至對應 profile；不得污染本地 replay 或其他來源。
+    base = os.path.basename(os.path.abspath(yaml_path))
+    discovered_name = None
+    if merge_discovered and base == "landmarks.yaml":
+        discovered_name = "discovered.yaml"
+    elif merge_discovered and base == "world_channels.yaml":
+        discovered_name = "discovered_traffic.yaml"
+    if discovered_name:
+        discovered_path = os.path.join(os.path.dirname(os.path.abspath(yaml_path)), discovered_name)
         for c in _load_one(discovered_path).get("channels", []) or []:
             if c.get("id") in seen_ids:
                 continue
             c = dict(c); c["path"] = os.path.expandvars(c.get("url", ""))
-            if c.get("event_type") == "abnormal_crowd":
+            if base == "landmarks.yaml" and c.get("event_type") == "abnormal_crowd":
                 c["event_type"] = "security_anomaly"  # migrate pre-security-gate discoveries in memory
+            if base == "world_channels.yaml":
+                c["event_type"] = "traffic"
             out.append(c); seen_ids.add(c["id"])
     return out
 

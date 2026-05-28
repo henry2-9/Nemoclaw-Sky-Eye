@@ -8,12 +8,43 @@ from dashboard import app as dashboard
 def test_attack_demo_incident_can_be_featured_on_home_page():
     row = {"channel": "19", "severity": "critical", "trigger_origin": "demo_manual",
            "injection_detected": True, "escalated": True,
-           "media_artifacts": {"urls": {"clip": "/media/demo/redacted_clip.mp4"}}}
+           "media_artifacts": {"urls": {"clip": "/media/demo/redacted_clip.mp4",
+                                        "frame": "/media/demo/frame_redacted.jpg"}}}
     assert dashboard._latest_media_row([row]) is row
     rendered = dashboard._render_attack_scene([row])
     assert "攻擊演練" in rendered
     assert "已阻擋" in rendered
     assert "查看證據鏈" in rendered
+    assert "poster='/media/demo/frame_redacted.jpg'" in rendered
+    assert "autoplay" not in rendered
+
+
+def test_command_center_separates_live_state_from_latest_test_result(monkeypatch):
+    monkeypatch.setattr(dashboard, "_uptime_str", lambda: "1h 2m")
+    rows = [
+        {"severity": "high", "trigger_origin": "demo_manual",
+         "ts_iso": "2026-05-26T17:26:22",
+         "media_artifacts": {"urls": {"frame": "/media/demo/frame_redacted.jpg"}}},
+    ]
+
+    rendered = dashboard._render_command_center(
+        rows, health={"nemotron": "up", "falcon": "up", "nemoclaw": "up"})
+
+    assert "LIVE 狀態" in rendered
+    assert "無現行警報" in rendered
+    assert "累計確認 0 起" in rendered
+    assert "TEST 最近結果" in rendered
+    assert ">高</strong>" in rendered
+    assert "2026-05-26 17:26" in rendered
+
+
+def test_health_dots_identify_down_and_unknown_services():
+    rendered = dashboard._health_dots({"nemotron": "up", "falcon": "down"})
+
+    assert "Falcon 異常" in rendered
+    assert "dot off" in rendered
+    assert "NemoClaw 未知" in rendered
+    assert "dot unknown" in rendered
 
 
 def test_source_grid_uses_supervisor_active_configuration(monkeypatch, tmp_path):
@@ -36,7 +67,7 @@ def test_source_grid_uses_supervisor_active_configuration(monkeypatch, tmp_path)
 
     rendered = dashboard._render_sky_eye_grid()
 
-    assert "國道即時來源" in rendered
+    assert "世界路口交通來源" in rendered
     assert "ch101" in rendered
     assert "ch201" not in rendered
 
@@ -98,3 +129,38 @@ def test_thought_stream_excludes_records_before_current_supervisor_start(monkeyp
 
     assert "live incident" in rendered
     assert "test artifact" not in rendered
+
+
+def test_followup_inherits_test_origin_from_linked_audit_event(monkeypatch):
+    monkeypatch.setattr(
+        dashboard._followup,
+        "latest",
+        lambda n: [{"trace_id": "t-test", "channel": "19", "event_type": "fire_smoke",
+                    "severity": "high", "ts_iso": "2026-05-26T17:26:22",
+                    "commands": [], "conclusion": "綜合判斷: 真實 · 測試事件"}],
+    )
+
+    rendered = dashboard._render_followups(
+        [{"trace_id": "t-test", "trigger_origin": "demo_manual"}])
+
+    assert "TEST 受控演練" in rendered
+    assert "查看證據鏈" in rendered
+    assert "2026-05-26 17:26:22" in rendered
+    assert "不代表目前告警狀態" not in rendered
+
+
+def test_followup_without_audit_origin_is_collapsed_as_non_live(monkeypatch):
+    monkeypatch.setattr(
+        dashboard._followup,
+        "latest",
+        lambda n: [{"trace_id": "fusion-001", "channel": "201",
+                    "event_type": "fire_smoke", "severity": "critical",
+                    "commands": [], "conclusion": "綜合判斷: 真實"}],
+    )
+
+    rendered = dashboard._render_followups([])
+
+    assert "無已標示來源的二次調查事件" in rendered
+    assert "未連結事件紀錄 1 筆" in rendered
+    assert "不代表 LIVE 現況" in rendered
+    assert "不代表目前告警狀態" in rendered
