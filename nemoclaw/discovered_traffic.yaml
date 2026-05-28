@@ -7,3 +7,19 @@ channels:
   name: Melbourne City Intersection · 交通探索
   url: https://www.youtube.com/watch?v=gEbrHdFRgpQ
   event_type: traffic
+- id: 122
+  name: Belt Parkway & Shore Parkway, Coney  · 交通探索
+  url: https://www.youtube.com/watch?v=b4oQ6bQAgL4
+  event_type: traffic
+- id: 123
+  name: I-95 @ Opa Locka Blvd · 交通探索
+  url: https://www.youtube.com/watch?v=WPp31B_KH_Y
+  event_type: traffic
+- id: 124
+  name: 繁中路口 · 交通探索
+  url: https://www.youtube.com/watch?v=bJVIXNkqZWM
+  event_type: traffic
+- id: 125
+  name: Hikvision Traffic Flow Analysis Came · 交通探索
+  url: https://www.youtube.com/watch?v=PiOqMMOFQNw
+  event_type: traffic

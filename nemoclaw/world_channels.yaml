@@ -1,12 +1,29 @@
-# 世界公開路口/道路直播攝影機 —— 內建台灣國道 CCTV 範例(公開政府交通攝影機,MJPEG)
+# 世界公開政府路口/道路直播攝影機。
+# 三大來源:
+#   1) 台灣高公局 CCTV(MJPEG,公開無 key)
+#   2) 英國 TfL JamCam(政府開放資料 API,每幾秒更新 JPEG snapshot)
+#   3) 日本/歐洲其他國家 → 由 agent 自主 yt-dlp 探索找 24/7 公開 live(寫入 discovered_traffic.yaml)
 # 資源節省:每週期每路只抓「1 幀」即關閉連線,不連續解碼。
-# 要新增攝影機:加一筆 url 即可(任何 ffmpeg 可讀的 rtsp/http(s)/HLS 串流皆可)。
 # agent 自主探索會把路口/道路 live cam 寫入 discovered_traffic.yaml;啟用 discovery 時自動合併。
 # 啟用方式:export NEMOCLAW_CHANNELS_FILE=$NEMOCLAW_DIR/world_channels.yaml
 channels:
-  - { id: 101, name: "國道CCTV-10001", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10001", event_type: traffic }
-  - { id: 102, name: "國道CCTV-10002", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10002", event_type: traffic }
-  - { id: 103, name: "國道CCTV-10011", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10011", event_type: traffic }
-  - { id: 104, name: "國道CCTV-10021", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10021", event_type: traffic }
-  - { id: 105, name: "國道CCTV-10101", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10101", event_type: traffic }
-  - { id: 106, name: "國道CCTV-30001", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=30001", event_type: traffic }
+  # 🇹🇼 台灣高公局 CCTV
+  - { id: 101, name: "國道CCTV-10001 · 台灣高公局", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10001", event_type: traffic }
+  - { id: 102, name: "國道CCTV-10002 · 台灣高公局", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10002", event_type: traffic }
+  - { id: 103, name: "國道CCTV-10011 · 台灣高公局", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10011", event_type: traffic }
+  - { id: 104, name: "國道CCTV-10021 · 台灣高公局", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10021", event_type: traffic }
+  - { id: 105, name: "國道CCTV-10101 · 台灣高公局", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10101", event_type: traffic }
+  - { id: 106, name: "國道CCTV-30001 · 台灣高公局", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=30001", event_type: traffic }
+  # 🇬🇧 英國倫敦 TfL JamCam(政府開放資料 · jpeg snapshot)
+  - { id: 130, name: "Piccadilly Circus · 倫敦 TfL", url: "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.07450.jpg", event_type: traffic }
+  - { id: 131, name: "Oxford St/Orchard St · 倫敦 TfL", url: "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.08858.jpg", event_type: traffic }
+  - { id: 132, name: "Hyde Park Corner/Park Lane · 倫敦 TfL", url: "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.08750.jpg", event_type: traffic }
+  - { id: 133, name: "Trafalgar Rd/Greenwich Pk · 倫敦 TfL", url: "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.03105.jpg", event_type: traffic }
+  - { id: 134, name: "A23 Streatham H Rd · 倫敦 TfL", url: "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.04530.jpg", event_type: traffic }
+  - { id: 135, name: "Tadema Rd/Kings Rd Chelsea · 倫敦 TfL", url: "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.06584.jpg", event_type: traffic }
+  # 🇯🇵 日本(YouTube 24/7 公開 live)
+  - { id: 140, name: "渋谷スクランブル交差点 · 東京 ANN朝日", url: "https://www.youtube.com/watch?v=8H3nRCFVR6Y", event_type: traffic }
+  - { id: 143, name: "大阪 道頓堀 · 大阪 LiveCamera", url: "https://www.youtube.com/watch?v=v1iiYcesCUo", event_type: traffic }
+  # 🇪🇺 歐洲(YouTube 24/7 公開 live)
+  - { id: 141, name: "Alexanderplatz · 柏林 Panorama", url: "https://www.youtube.com/watch?v=IRqboacDNFg", event_type: traffic }
+  - { id: 142, name: "De Dam · 阿姆斯特丹 Now4Rent", url: "https://www.youtube.com/watch?v=Gd9d4q6WvUY", event_type: traffic }
