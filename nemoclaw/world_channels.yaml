@@ -12,7 +12,6 @@ channels:
   - { id: 102, name: "國道CCTV-10002 · 台灣高公局", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10002", event_type: traffic }
   - { id: 103, name: "國道CCTV-10011 · 台灣高公局", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10011", event_type: traffic }
   - { id: 104, name: "國道CCTV-10021 · 台灣高公局", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10021", event_type: traffic }
-  - { id: 105, name: "國道CCTV-10101 · 台灣高公局", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10101", event_type: traffic }
   - { id: 106, name: "國道CCTV-30001 · 台灣高公局", url: "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=30001", event_type: traffic }
   # 🇬🇧 英國倫敦 TfL JamCam(政府開放資料 · jpeg snapshot)
   - { id: 130, name: "Piccadilly Circus · 倫敦 TfL", url: "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.07450.jpg", event_type: traffic }
