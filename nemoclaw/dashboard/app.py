@@ -963,7 +963,7 @@ class H(BaseHTTPRequestHandler):
         thoughts_panel = _render_thoughts()
         live_events = _render_live_events(rows)
         status_html = (_health_dots(health)
-                       + "<span class=muted>每 5s 更新 · 檢視時暫停</span>")
+                       + "<span class=muted>每 30s 更新 · 檢視時暫停</span>")
         dist = " ".join(
             f"<span class='badge {cls}'>{name} {s[name]}</span>"
             for name, cls in (("ALLOW", "b-allow"), ("BLOCK", "b-block"),
@@ -1022,7 +1022,7 @@ window.setInterval(() => {{
     .some(video => !video.paused && !video.ended);
   const reading = document.querySelector("details[open]") || window.scrollY > 40;
   if (!document.hidden && !videoPlaying && !reading) window.location.reload();
-}}, 5000);
+}}, 30000);
 </script></body></html>"""
         self._send_html(html)
 
