@@ -87,3 +87,43 @@ channels:
   name: SHIBUYA CROSSING, JAPAN · 交通探索
   url: https://www.youtube.com/watch?v=DttVxNt_upc
   event_type: traffic
+- id: 142
+  name: Obor Square, Bucharest · 交通探索
+  url: https://www.youtube.com/watch?v=Zzo-LUV_xt4
+  event_type: traffic
+- id: 152
+  name: Vermont town intersection · 交通探索
+  url: https://www.youtube.com/watch?v=yct-8zpB8Mk
+  event_type: traffic
+- id: 153
+  name: Memorial MCP · 交通探索
+  url: https://www.youtube.com/watch?v=-QDj2QQwrjg
+  event_type: traffic
+- id: 154
+  name: City of Murfreesboro - Traffic Camer · 交通探索
+  url: https://www.youtube.com/watch?v=FHE4LWzfBX4
+  event_type: traffic
+- id: 155
+  name: Belt Parkway & Shore Parkway, Coney  · 交通探索
+  url: https://www.youtube.com/watch?v=dMPe53lQQuY
+  event_type: traffic
+- id: 156
+  name: US-1 Florida Keys · 交通探索
+  url: https://www.youtube.com/watch?v=Oou0UOM4hF8
+  event_type: traffic
+- id: 157
+  name: Maybank Highway · 交通探索
+  url: https://www.youtube.com/watch?v=5JbHrQci-28
+  event_type: traffic
+- id: 158
+  name: 夜間市區路口 · 交通探索
+  url: https://www.youtube.com/watch?v=8x4Nub9X5V4
+  event_type: traffic
+- id: 159
+  name: Tooley St/Boss St · 交通探索
+  url: https://www.youtube.com/watch?v=qtyq69xoPmM
+  event_type: traffic
+- id: 160
+  name: Victoria Embankment/Temple Place · 交通探索
+  url: https://www.youtube.com/watch?v=8HxdKTNPaPM
+  event_type: traffic
