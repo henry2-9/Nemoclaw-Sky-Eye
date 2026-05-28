@@ -26,4 +26,3 @@ channels:
   - { id: 143, name: "大阪 道頓堀 · 大阪 LiveCamera", url: "https://www.youtube.com/watch?v=v1iiYcesCUo", event_type: traffic }
   # 🇪🇺 歐洲(YouTube 24/7 公開 live)
   - { id: 141, name: "Alexanderplatz · 柏林 Panorama", url: "https://www.youtube.com/watch?v=IRqboacDNFg", event_type: traffic }
-  - { id: 142, name: "De Dam · 阿姆斯特丹 Now4Rent", url: "https://www.youtube.com/watch?v=Gd9d4q6WvUY", event_type: traffic }
