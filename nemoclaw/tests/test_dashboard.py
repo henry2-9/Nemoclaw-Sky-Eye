@@ -68,8 +68,8 @@ def test_source_grid_uses_supervisor_active_configuration(monkeypatch, tmp_path)
     rendered = dashboard._render_sky_eye_grid()
 
     assert "世界路口交通來源" in rendered
-    assert "ch101" in rendered
-    assert "ch201" not in rendered
+    assert "Road source" in rendered
+    assert "Stale landmark" not in rendered
 
 
 def test_landmark_wall_renders_redacted_previews_and_selected_focus(monkeypatch, tmp_path):
@@ -102,7 +102,7 @@ def test_landmark_wall_renders_redacted_previews_and_selected_focus(monkeypatch,
 
     rendered = dashboard._render_sky_eye_grid("202")
 
-    assert "地標天眼牆" in rendered
+    assert "全球地標天眼" in rendered
     assert "/wall/ch201.jpg" in rendered
     assert "/wall/ch202.jpg" in rendered
     assert "Sydney" in rendered

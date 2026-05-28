@@ -291,6 +291,34 @@ details.audit-more table{font-size:12.5px}
   margin-top:4px;padding-top:6px}
 .fu-verdict .vr-advice{color:#a5f3fc}
 .fu-verdict .vr-misc{color:#cbd5e1}
+/* 主頁監控牆(暗色 glass) */
+.wd-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.wd-head h3{margin:0}
+.wd-tools{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.lay-chooser{display:flex;gap:5px;align-items:center;font-size:12px;color:#9aa3c7}
+.lay-btn{background:rgba(255,255,255,.05);border:1px solid #2a3640;color:#c7cdf0;
+  padding:3px 10px;border-radius:5px;font-weight:600;text-decoration:none;font-size:12px}
+.lay-btn:hover{background:rgba(255,255,255,.1);text-decoration:none}
+.lay-btn.on{background:#10b981;color:#0a0f12;border-color:#10b981}
+.wd-grid{display:grid;gap:10px}
+.wd-cell{position:relative;aspect-ratio:16/9;background:#1a2128;border-radius:6px;
+  background-size:cover;background-position:center;overflow:hidden;
+  border:1px solid #2a3640;display:flex;align-items:center;justify-content:center;
+  text-decoration:none}
+.wd-cell:hover{border-color:#34d399;text-decoration:none}
+.wd-cell.empty{background:#10171c;border:1px dashed #2a3640}
+.wd-placeholder{width:9px;height:9px;border-radius:50%;background:#4b5563}
+.wd-chip{position:absolute;top:6px;left:6px;display:flex;align-items:center;gap:6px;
+  background:rgba(0,0,0,.7);color:#edf0f2;font-size:11px;font-weight:600;
+  padding:3px 8px;border-radius:4px;max-width:calc(100% - 80px);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;backdrop-filter:blur(4px)}
+.wd-chip .wd-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#34d399;
+  box-shadow:0 0 5px #34d399;animation:pulse 2.4s infinite}
+.wd-chip .wd-dot.off{background:#f87171;box-shadow:0 0 5px #f87171;animation:none}
+.wd-chip .wd-dot.unknown{background:#94a3b8;box-shadow:none;animation:none}
+.wd-ts{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);color:#edf0f2;
+  font-size:10.5px;padding:2px 6px;border-radius:3px;font-family:ui-monospace,Consolas,monospace;
+  backdrop-filter:blur(4px)}
 /* 監控牆 /wall */
 body.wall-body{background:#f5f6f7;color:#1f2937}
 .wall-wrap{max-width:1760px;margin:0 auto;padding:18px 22px 28px}
@@ -583,8 +611,9 @@ _THOUGHT_TAGS = {
 }
 
 
-def _render_sky_eye_grid(selected_channel=None):
-    """Render a privacy-processed monitoring wall for the supervisor's active channel set."""
+def _render_sky_eye_grid(selected_channel=None, layout=16):
+    """N×N 監控牆視覺(暗色 glass,首頁主視角)。layout ∈ {1,4,6,9,16,25}。
+    每 cell 為 16:9 snapshot + 左上 chip(LED+名稱)+ 右上 ts;沒 snapshot 顯示中央灰點。"""
     if not _feed_health or not _register_channels:
         return ""
     active_marker = os.path.join(_NEMODIR, "active_channels_file")
@@ -607,7 +636,7 @@ def _render_sky_eye_grid(selected_channel=None):
     if not channels:
         return ""
     source_name = {
-        "landmarks.yaml": "地標天眼牆",
+        "landmarks.yaml": "全球地標天眼",
         "world_channels.yaml": "世界路口交通來源",
         "channels.yaml": "本地 Replay",
     }.get(os.path.basename(active_file), "已設定來源")
@@ -616,58 +645,58 @@ def _render_sky_eye_grid(selected_channel=None):
         k = str(c.get("id", ""))
         v = full.get(k, {"name": c.get("name", ""), "last": "", "ok": None})
         entries.append((c, k, v, wall_snapshots.preview(k)))
-    selected = next((e for e in entries if e[1] == str(selected_channel or "")), None)
-    selected = selected or next((e for e in entries if e[2].get("ok") is True and e[3]), entries[0])
     online = sum(1 for _, _, v, _ in entries if v.get("ok") is True)
     offline = sum(1 for _, _, v, _ in entries if v.get("ok") is False)
     pending = len(entries) - online - offline
 
-    def status_meta(v):
-        ok = v.get("ok")
-        color = "#34d399" if ok is True else ("#f87171" if ok is False else "#9aa3c7")
-        status = "正常" if ok is True else ("離線" if ok is False else "待檢")
-        return color, status
+    layout = layout if layout in _WALL_LAYOUTS else 16
+    cols = _WALL_LAYOUTS[layout]
 
-    def snapshot(preview, alt, focus=False):
-        if not preview:
-            return "<div class=wall-empty>巡檢快照待產生</div>"
-        klass = "wall-focus-image" if focus else "wall-thumb-image"
-        version = urllib.parse.quote(str(preview.get("captured_at", "")))
-        return (f"<img class='{klass}' src='{html.escape(preview['url'])}?v={version}' "
-                f"alt='{html.escape(alt)}巡檢快照'>")
+    cells = []
+    for i in range(layout):
+        if i < len(entries):
+            c, k, v, snap = entries[i]
+            name = html.escape((c.get("name") or "")[:36])
+            ok = v.get("ok")
+            dot = "on" if ok is True else ("off" if ok is False else "unknown")
+            ts = ""
+            if snap and snap.get("captured_at"):
+                ts = html.escape(str(snap["captured_at"])[-8:])
+            elif v.get("last"):
+                ts = html.escape(str(v["last"])[-8:])
+            if snap and snap.get("url"):
+                version = urllib.parse.quote(str(snap.get("captured_at", "")))
+                bg = f"style=\"background-image:url('{html.escape(snap['url'])}?v={version}')\""
+                center = ""
+            else:
+                bg = ""
+                center = "<div class=wd-placeholder></div>"
+            ts_html = f"<div class=wd-ts>{ts}</div>" if ts else ""
+            cells.append(
+                f"<a class=wd-cell href='/trace?trace_id=' {bg}>"
+                f"<div class=wd-chip><span class='wd-dot {dot}'></span>{name}</div>"
+                f"{ts_html}{center}</a>")
+        else:
+            cells.append("<div class='wd-cell empty'><div class=wd-placeholder></div></div>")
 
-    c, k, v, preview = selected
-    color, status = status_meta(v)
-    ts = (v.get("last", "") or "尚無巡檢時間").replace("T", " ")
-    focus = (
-        f"<div class=wall-focus><div class=wall-focus-media>{snapshot(preview, c.get('name', ''), focus=True)}</div>"
-        f"<div class=wall-focus-meta><div><div class=se-id>LIVE · CH{html.escape(k)}</div>"
-        f"<div class=wall-focus-name>{html.escape(c.get('name', ''))}</div>"
-        f"<div class=wall-rule>火煙 / 遺留物 / 人流偏離</div></div>"
-        f"<div><div class=se-status style='color:{color}'>{status}</div>"
-        f"<div class=se-ts>{html.escape(ts)}</div></div></div></div>"
-    )
-    tiles = []
-    for c, k, v, preview in entries:
-        color, status = status_meta(v)
-        ts = (v.get("last", "") or "")[-8:]
-        tiles.append(
-            f"<a class='se-tile{' active' if k == selected[1] else ''}' href='/?channel={urllib.parse.quote(k)}' "
-            f"style='--state:{color}'>"
-            f"<div class=se-thumb>{snapshot(preview, c.get('name', ''))}</div>"
-            f"<div class=se-name>{html.escape(v.get('name') or c.get('name', ''))}</div>"
-            f"<div class=se-status style='color:{color}'>{status} <span class=se-id>ch{html.escape(k)}</span></div>"
-            f"<div class=se-ts>{html.escape(ts)}</div></a>")
+    chooser = "".join(
+        f"<a class='lay-btn{' on' if n == layout else ''}' "
+        f"href='/?layout={n}'>{n}</a>"
+        for n in (1, 4, 6, 9, 16, 25))
+
     totals = (
         f"<span class='badge b-gov'>監看 {len(entries)}</span>"
         f"<span class='badge b-allow'>正常 {online}</span>"
         f"<span class='badge b-block'>離線 {offline}</span>"
         f"<span class='badge b-dedup'>待檢 {pending}</span>"
     )
-    return (f"<section class='panel glass live-wall'><div class=wall-head><h3><span class='tag tag-live'>LIVE</span> {source_name} "
+    return (f"<section class='panel glass'><div class=wd-head>"
+            f"<h3><span class='tag tag-live'>LIVE</span> {html.escape(source_name)} "
             f"<span class=muted style='font-size:11px;font-weight:400'>正常巡檢</span></h3>"
-            f"<div class=wall-totals>{totals}</div></div>"
-            f"<div class=wall-layout>{focus}<div class=se-grid>{''.join(tiles)}</div></div></section>")
+            f"<div class=wd-tools>{totals}"
+            f"<span class=lay-chooser>版面 {chooser}</span></div></div>"
+            f"<div class=wd-grid style='grid-template-columns:repeat({cols},1fr)'>"
+            f"{''.join(cells)}</div></section>")
 
 
 _WALL_LAYOUTS = {1: 1, 4: 2, 6: 3, 9: 3, 16: 4, 25: 5}
@@ -1159,13 +1188,17 @@ class H(BaseHTTPRequestHandler):
             return
         qs = urllib.parse.parse_qs(parsed.query)
         selected_channel = (qs.get("channel") or [""])[0]
+        try:
+            layout = int((qs.get("layout") or ["16"])[0])
+        except ValueError:
+            layout = 16
         rows = _rows()
         s, notified, inj, gov = _stats(rows)
         flight_count = len(flight_recorder.group_by_trace(_runtime_flight_rows()))
         m = _efficiency_metrics()
         health = _health_now()
         command_center = _render_command_center(rows, health)
-        sky_eye_grid = _render_sky_eye_grid(selected_channel)
+        sky_eye_grid = _render_sky_eye_grid(selected_channel, layout=layout)
         thoughts_panel = _render_thoughts()
         attack_scene = _render_attack_scene(rows)
         status_html = (_health_dots(health)
@@ -1207,7 +1240,7 @@ class H(BaseHTTPRequestHandler):
 <style>{STYLE}</style></head><body><div class=wrap>
 <header class='head glass'>
   <div><div class=brand>NEMOCLAW · SKY EYE</div>
-  <div class=sub>地標巡檢 / 異常演練 · GB10 · <a href='/wall' style='color:#7fd6ff'>切換到監控牆 →</a></div></div>
+  <div class=sub>世界路口監控牆 / 異常演練 · GB10 · <a href='/wall' style='color:#7fd6ff'>全螢幕監控牆 →</a></div></div>
   <div class=status>{status_html}</div>
 </header>
 <main class=primary-grid>{sky_eye_grid}{attack_scene}</main>
