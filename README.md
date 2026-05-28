@@ -25,21 +25,20 @@
 
 ## 📸 介面預覽
 
-### 主頁:N×N 監控牆 + 即時事件 + 自主調查
+### 主頁:N×N 監控牆 + 即時事件
 ![Sky Eye Dashboard](nemoclaw/docs/screenshots/home.png)
 
-> 👉 **截圖待補**:`nemoclaw/docs/screenshots/home.png`(主頁 N×N 監控牆 + 右側 📡 即時事件)
-> 暫時參考 `home-legacy.png`(舊版主視角布局,主題一致)
+預設 4×4 監控牆 · 右側即時事件 panel · 上方版面 chooser(1/4/6/9/16/25)+ 監看/正常/離線統計。
 
-### 🌐 跨地標關聯偵測(drawer 內)
+### 🌐 跨地標關聯偵測
 ![Cross-Camera Correlation](nemoclaw/docs/screenshots/correlation.png)
 
-> 👉 **截圖待補**:`nemoclaw/docs/screenshots/correlation.png`(展開「事件紀錄與技術證據」 → 🌐 跨地標關聯偵測 panel)
+5min 窗 ≥2 路同類事件自動升級協同警報。
 
-### OpenShell sandbox 3 源跨來源驗證
+### 🛰 OpenShell sandbox 3 源跨來源驗證
 ![3-Source Cross-Verification](nemoclaw/docs/screenshots/followup.png)
 
-> 👉 **截圖待補**:`nemoclaw/docs/screenshots/followup.png`(展開「事件紀錄與技術證據」內的 🛰 OpenShell 沙箱二次調查紀錄)
+嚴重事件後 Hermes 在沙箱內主動 curl 公共即時情報(weather.gov / USGS / HN / OpenSky),5 行 verdict 融合(每源證實/否認/無訊號 + 綜合判斷 + 建議)。
 
 ---
 

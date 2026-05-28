@@ -25,21 +25,20 @@
 
 ## 📸 UI Preview
 
-### Home: N×N Surveillance Wall + Live Events + Autonomous Investigation
+### Home: N×N Surveillance Wall + Live Events
 ![Sky Eye Dashboard](nemoclaw/docs/screenshots/home.png)
 
-> 👉 **Screenshot pending**: `nemoclaw/docs/screenshots/home.png` (home page N×N wall + right-side 📡 Live Events)
-> Temporary reference: `home-legacy.png` (older focus-grid layout, same dark theme)
+Default 4×4 surveillance wall · right-side live events panel · layout chooser (1/4/6/9/16/25) + monitor/online/offline stats.
 
-### 🌐 Cross-Camera Correlation (in drawer)
+### 🌐 Cross-Camera Correlation
 ![Cross-Camera Correlation](nemoclaw/docs/screenshots/correlation.png)
 
-> 👉 **Screenshot pending**: `nemoclaw/docs/screenshots/correlation.png` (expand "Event Records & Tech Evidence" → 🌐 Cross-Camera Correlation panel)
+5-min window ≥2 channels same event_type → auto-escalate to coordinated alert.
 
-### OpenShell Sandbox 3-Source Cross-Verification
+### 🛰 OpenShell Sandbox 3-Source Cross-Verification
 ![3-Source Cross-Verification](nemoclaw/docs/screenshots/followup.png)
 
-> 👉 **Screenshot pending**: `nemoclaw/docs/screenshots/followup.png` (expand "Event Records & Tech Evidence" → 🛰 OpenShell Sandbox Investigation Records panel)
+On severe events, Hermes inside the sandbox actively `curl`s public realtime intel (weather.gov / USGS / HN / OpenSky) and produces a 5-line verdict fusion (confirm/refute/no-signal per source + overall judgment + recommendation).
 
 ---
 
