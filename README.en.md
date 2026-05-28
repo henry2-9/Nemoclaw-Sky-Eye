@@ -1,6 +1,6 @@
 # 🌐 NemoClaw Sky Eye
 
-> **Nemotron sees, NVIDIA NemoClaw guards.** A 24/7 autonomous agent on a single DGX Spark **GB10** patrolling world traffic intersections and public landmarks — self-learning cheap-gate baselines, autonomous investigation, autonomous web crawling for real-time intel cross-verification, cross-camera correlation escalation, and **incident handling without human approval** — every action governed by NemoClaw policy guardrails with full audit trail.
+> **Nemotron sees, NVIDIA NemoClaw guards.** 24/7 autonomous Sky Eye agent on a single DGX Spark **GB10** — **LocateAnything-3B visual grounding cheap-gate**, self-learning baselines, autonomous investigation & handling, sandbox 3-source realtime web-crawl cross-verification, cross-camera correlation escalation, no human approval in the loop, every action governed by NemoClaw policy guardrails with full audit trail.
 
 **繁體中文版本:** [README.md](README.md)
 

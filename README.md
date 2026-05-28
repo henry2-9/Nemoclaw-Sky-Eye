@@ -1,6 +1,6 @@
 # 🌐 NemoClaw 天眼 · Sky Eye
 
-> **Nemotron 負責看,NVIDIA NemoClaw 負責守。** 單台 DGX Spark **GB10** 上 7×24 自主巡檢世界路口/公共地標的天眼 agent — 自學 cheap-gate 基線、自主調查與處置、自主上網爬即時情報做跨來源驗證、跨地標關聯升級、事件處置**不需人工核准**,每個動作都受 NemoClaw 政策護欄治理、全程可稽核。
+> **Nemotron 負責看,NVIDIA NemoClaw 負責守。** 單台 DGX Spark **GB10** 上 7×24 自主巡檢世界路口/公共地標的天眼 agent — **LocateAnything-3B 視覺定位 cheap-gate**、自學基線、自主調查與處置、自主上網爬即時情報做跨來源驗證、跨地標關聯升級、事件處置**不需人工核准**,每個動作都受 NemoClaw 政策護欄治理、全程可稽核。
 
 **English version:** [README.en.md](README.en.md)
 
