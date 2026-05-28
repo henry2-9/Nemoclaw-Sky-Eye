@@ -1,255 +1,185 @@
 # 🌐 NemoClaw 天眼 · Sky Eye
 
-> **NVIDIA Agent Hackathon 參賽作品** — 在單台 DGX Spark **GB10** 上,以 **Nemotron** 為核心推理模型,
-> 打造**無人工核准處置、7×24** 監看已設定城市/交通/公共地標來源的**自主 AI 監控哨兵**。
->
-> 運行血緣:`OpenClaw → Hermes → **NemoClaw**`(Nemotron 核心 + Hermes 通知 + policy 護欄)。
+> **Nemotron 負責看,NVIDIA NemoClaw 負責守。** 單台 DGX Spark **GB10** 上 7×24 自主巡檢世界路口/公共地標的天眼 agent — 自學 cheap-gate 基線、自主調查與處置、自主上網爬即時情報做跨來源驗證、跨地標關聯升級、事件處置**不需人工核准**,每個動作都受 NemoClaw 政策護欄治理、全程可稽核。
 
-一台 GB10,agent 自主巡檢已設定的 live 攝影機(Times Square、Rialto Bridge、Eiffel Tower、
-Temple Bar、Bryant Park、New York Skyline 或台灣國道 CCTV);可選擇啟用 YouTube 地標探索排程。它只升級**可疑/異常事件**
-(火/煙、可疑遺留物、異常人群、交通風險)。事件處置不需人工核准:
-偵測→自主調查→分級治理→處置/通知/產報告→健康監測,
-每個對外動作都先過 **NemoClaw 政策護欄**並留**稽核軌跡**。
-首頁提供 **N×N 監控牆**(預設 4×4,可切 1/4/6/9/16/25)+ 右側即時事件 panel:
-巡檢成功即更新人臉遮罩後的最新快照,每 cell 顯示 LED 健康燈與最近巡檢時間;原始取幀不經網頁公開。
-嚴重事件後 Hermes 在 OpenShell sandbox 內主動 curl 即時情報(weather.gov / USGS / HN / OpenSky)
-做 3 源獨立交叉驗證,跨地標 5 分鐘窗 ≥2 路同類事件自動升級為協同警報。
+**English version:** [README.en.md](README.en.md)
 
 ---
 
-## 為什麼這個架構能在單台 GB10 撐多路監看(核心洞見)
+## ✨ 主要特色
 
-30B Omni 模型不可能對多路影像持續做昂貴推理。**R2 級聯**讓便宜的感知按巡檢週期先篩選、昂貴的 Nemotron 只在有候選時才推理:
+| 能力 | 說明 |
+|---|---|
+| 🎥 **N×N 監控牆** | 預設 4×4 · 可切 1/4/6/9/16/25;台灣高公局 + 倫敦 TfL + 日本 + 歐洲 + agent 自主發現,共 ~22 路 |
+| 🧠 **R2 級聯架構** | Falcon cheap-sweep(便宜) → Nemotron-Omni 多模態確認(按需) → 真 NVIDIA NemoClaw 治理 |
+| 🛰 **OpenShell sandbox 3 源跨來源驗證** | 嚴重事件後 Hermes 在沙箱內主動 `curl weather.gov + USGS + HN + OpenSky` 4 個 sub-hourly 即時源 |
+| 🌐 **跨地標關聯偵測** | 5 分鐘窗 ≥2 路同類事件 → 自動升級協同警報(3+ 路 = critical) |
+| 🔬 **可看見的自主性** | 第一人稱思考流 ticker:agent 在做什麼即時可見(sweep/baseline/investigate/discover/...) |
+| 🛡 **真 NemoClaw 治理** | OpenShell 沙箱 + policy preset `sky-eye-recon` 白名單 4 hosts;`governed_by=nemoclaw-openshell` |
+| 🔒 **隱私 by design** | 人臉 redaction 強制;原始畫面 403,只送 redacted artifact;dashboard URL 限定白名單 |
+| 📋 **Flight Recorder** | 每事件完整軌跡:sweep → Nemotron raw → grading → NemoClaw triage → policy decision → sandbox followup |
+| 💾 **本地儲存** | SQLite 預設(無需 DB server);支援 MongoDB 切換 |
+| ⚡ **零雲端推理** | Nemotron + Falcon + NemoClaw + dashboard 全部跑在一台 GB10 |
+
+---
+
+## 📸 介面預覽
+
+### 主頁:N×N 監控牆 + 即時事件 + 自主調查
+![Sky Eye Dashboard](docs/screenshots/home.png)
+
+> 👉 **截圖待補**:`docs/screenshots/home.png`(主頁 N×N 監控牆 + 右側 📡 即時事件)
+> 暫時參考 `home-legacy.png`(舊版主視角布局,主題一致)
+
+### 全螢幕監控牆:`/wall?layout=16`
+![Surveillance Wall](docs/screenshots/wall.png)
+
+> 👉 **截圖待補**:`docs/screenshots/wall.png`(全螢幕監控牆模式,4×4 暗色)
+
+### OpenShell sandbox 3 源跨來源驗證
+![3-Source Cross-Verification](docs/screenshots/followup.png)
+
+> 👉 **截圖待補**:`docs/screenshots/followup.png`(展開「事件紀錄與技術證據」內的 🛰 OpenShell 沙箱二次調查紀錄)
+
+---
+
+## 🏗 架構
 
 ```
-[每輪] supervisor ──> 便宜 Falcon 感知 sweep(掃設定來源的當前影格)
-  ├─ 無候選 → [SILENT](Nemotron 不啟動)            ← 成本控制 ④
-  └─ 有候選 → 依優先序挑前 N(正常車流/常態人流先由 cheap gate 過濾)
-       └─> Nemotron-Omni 確認 + 分級(多模態,8 幀跨全片)
-             └─> nemoclaw-act 政策閘(唯一對外出口)
-                   ├─ ③ 接地/防注入(無引用→abstain;畫面文字當證據不當指令)
-                   ├─ ① 信心門檻 / 去重 / severity 路由 / 動作 allowlist
-                   ├─ ② PII 馬賽克(外發前打人臉)
-                   ├─ ④ 限流 / 安靜時段
-                   ├─ ALLOW → Telegram 通知 + SQLite/JSONL 持久化
-                   └─ BLOCK/DEDUP/ABSTAIN → 只記稽核
+                ┌─────────────────────────────────────────────────────┐
+                │  22 路世界路口 (台灣國道·TfL·日本·歐洲·自主發現)     │
+                └─────────────────────────────────────────────────────┘
+                                          │
+                                          ▼
+            ┌──────────────────────────────────────────────────┐
+            │  Falcon Perception sweep (cheap, per-cycle)      │
+            │  → 1 frame / channel / cycle, OWL-ViT detection  │
+            └──────────────────────────────────────────────────┘
+                                          │ 候選
+                                          ▼
+            ┌──────────────────────────────────────────────────┐
+            │  Nemotron-3-Nano-Omni-30B (vLLM :31010)          │
+            │  → 多模態確認 + 分級 + 信心邊界自主再查           │
+            └──────────────────────────────────────────────────┘
+                                          │ confirmed
+                                          ▼
+            ┌──────────────────────────────────────────────────┐
+            │  真 NVIDIA NemoClaw / Hermes (:8642)             │
+            │  OpenShell 沙箱 + policy guardrails              │
+            │  → triage(severity 防 OCR injection 降級)        │
+            └──────────────────────────────────────────────────┘
+                                          │ severity ≥ high
+            ┌──────────────────────────────────────────────────┐
+            │  🛰 sandbox 3 源獨立爬蟲(by policy 白名單)       │
+            │  curl weather.gov + USGS + HN + OpenSky          │
+            │  → Hermes 5 行 verdict 融合(證實/否認/無訊號)    │
+            └──────────────────────────────────────────────────┘
+                                          │
+                                          ▼
+            ┌──────────────────────────────────────────────────┐
+            │  Policy gate(唯一對外出口)                      │
+            │  → Telegram 通知 + audit + flight recorder       │
+            │  → 跨地標關聯偵測(5min ≥2 路 → 升級協同警報)    │
+            └──────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 真 NVIDIA NemoClaw 整合(option 3 hybrid)
-
-本作品**實際安裝並使用了真正的 NVIDIA NemoClaw**(`github.com/NVIDIA/NemoClaw`,
-官方 `curl|bash` 安裝),而非同名仿製:
-
-- **OpenShell 沙箱** `sentinel`(kernel 級隔離)+ **policy guardrails**(balanced tier, intent verification, egress allowlist)
-- **inference 路由到本機 Nemotron**(`:31010`,vllm-local provider)——零雲端推理
-- NemoClaw Hermes agent OpenAI-相容 API 於 `:8642`
-
-**職責分工(因硬體現實)**:
-- **視覺分析**留在**直連 Nemotron**(多模態 8 幀)——因 Hermes 要求 context ≥64K,而 8 張圖會超出本機 16K Nemotron,故重多模態不經 NemoClaw。
-- **文字 triage 決策**走**真 NemoClaw-Hermes**(`:8642`):Nemotron 產出事件描述後,由 OpenShell 沙箱內、受 policy 管治的 Hermes agent 判定 severity/處置;稽核記錄 `governed_by=nemoclaw-openshell`。
-- :8642 不可用時優雅降級回本地評分(系統不中斷)。
-
-> 為在本機 16K Nemotron 上運行,於沙箱 Hermes `config.yaml` 設 `model.context_length` 與
-> 各 `auxiliary.*.context_length` override 通過 64K guard(文字 triage 用量遠低於 16K,不 overflow)。
-
-### NemoClaw 安裝(一次性)
-```bash
-export NEMOCLAW_AGENT=hermes NEMOCLAW_PROVIDER=vllm NEMOCLAW_VLLM_PORT=31010 \
-       NEMOCLAW_MODEL=nemotron_3_nano_omni NEMOCLAW_SANDBOX_NAME=sentinel \
-       NEMOCLAW_POLICY_MODE=suggested NEMOCLAW_ACCEPT_THIRD_PARTY_SOFTWARE=1
-curl -fsSL https://www.nvidia.com/nemoclaw.sh | bash   # 需 sudo(Docker/CDI)
-# 之後:openshell forward start --background 8642 sentinel
-#       nemohermes sentinel status
-```
-
-## 對應 Hackathon 評審標準
-
-| 評審要求 | 本作品如何滿足 | 驗證 |
-|---|---|---|
-| 核心模型須為 **Nemotron** | 每個候選的確認/描述/分級皆由 `Nemotron-3-Nano-Omni-30B`(vLLM `:31010`)推理 | ✅ ch18→「偵測到濃煙」 |
-| **autonomous / no human in the loop** | production supervisor 自動排程監看,事件處置無人工核准;dashboard 區分排程與手動示範來源 | ✅ soak 多輪 + trace |
-| **long-running 架構** | 便宜 sweep 週期執行;Nemotron 僅在有候選時喚起;per-cycle timeout watchdog | ✅ |
-| **real task execution** | 真實工安事件偵測→調查→分級→通知;非概念 demo | ✅ |
-| **persistent deployment** | systemd `Restart=always` + SQLite confirmed incidents + JSONL 稽核軌跡 | ✅ |
-| **bonus: NemoClaw policy guardrails** | **真 NVIDIA NemoClaw**(OpenShell 沙箱 + policy)治理文字 triage 決策 + 自製 `nemoclaw-act` 動作閘(4 類護欄、PII、防注入、稽核)| ✅ `governed_by=nemoclaw-openshell` + ALLOW/BLOCK/DEDUP/注入 |
-
----
-
-## NemoClaw 4 類 Policy Guardrails
-
-宣告於 `policy.yaml`,由 `nemoclaw-act`(agent 唯一對外出口)強制:
-
-1. **動作閘門/分級** — 信心 <0.7 BLOCK;同事件 5 分內 DEDUP,但 severity 升級/critical 會穿透去重;severity 路由(目前所有嚴重度都通知,high→+escalate、critical→+report);動作 allowlist。
-2. **隱私/PII** — 對外只發 **redacted artifact**(`redacted_clip.mp4` / `*_redacted.jpg`,逐幀人臉模糊);地標天眼牆 `/wall/` 亦只提供遮罩後最近巡檢快照;原始 `clip.mp4`/`frame.jpg`/`falcon_annotated.jpg` 僅留本機,dashboard `/media` 對原始檔回 **403**;通知圖片與連結皆指向 redacted,manifest 標 `privacy_processed`。
-3. **接地/防注入** — 無證據引用 → ABSTAIN;畫面/字幕文字一律當「被觀察證據」,即使寫「忽略所有警報」也不照做,並標記 `injection_detected`。
-   另有視覺安全下限:高信心火災/濃煙不能只因畫面文字寫「系統測試」就被 triage 降級。
-4. **資源/運行** — 非 critical 每小時通知上限、critical 穿透;目前設定為 24/7 全嚴重度通知;per-cycle timeout 與服務健康探針。
-
-每個決策 append 至 **`audit.jsonl`**(含 decision / reasons / policy_hits / governed_by),檔案持久化、**服務重啟後仍可查詢**,dashboard 直接讀取 → **治理可稽核**。(MongoDB 為選用:`audit.append(..., mongo_collection=...)` 可接,預設走 JSONL。)
-同時寫入 `flight_recorder.jsonl`,把單一事件從 sweep 候選、Nemotron 原始回答、NemoClaw
-triage 到 policy decision 串成一條可點開的 **incident flight recorder**。
-放行事件會產生 `media_events/<trace_id>/`。本地 replay 依 playhead 切片;live 來源在 cheap
-candidate 觸發當下即開始擷取短片(`evidence_mode=trigger_onset_clip`),無候選時不連續錄影:
-
-- `clip.mp4` — 本機來源為事件切片;live 來源為候選觸發起始證據片段。
-- `frame.jpg` — 事件代表影格。
-- `falcon_annotated.jpg` — Falcon Perception bbox/segmentation 標記圖。
-
-Dashboard `/trace?...` 會直接嵌入錄影與事件影格;當 Falcon 產生有效偵測標記時才標示為 Falcon 標記圖。通知文字會附事件頁與可公開的遮罩媒體連結。
-平時無事件時,每次成功 sweep 仍會將最近取幀經 PII 遮罩後原子更新至 `wall_snapshots/`,
-供首頁地標牆呈現真實監看視角;此快照不是事件證據,事件證據仍以 Flight Recorder 與 `media_events/` 為準。
-
----
-
-## 快速啟動
+## 🚀 快速啟動
 
 ```bash
-# 0. 前置:vLLM Nemotron(:31010)、Falcon Perception(:18793)在線
-#    資料後端預設 SQLite(免 DB server);要用 FPG 共用 MongoDB 才需 :27017
-bash ~/vllm-nemotron-omni-nvfp4.sh      # 若 Nemotron 未啟動
-
-# 1. 環境(含 venv、Nemotron endpoint、Telegram 憑證 from hermes .env)
+# 1. 環境設定
 source nemoclaw/nemoclaw.env
 
-# 2. 註冊目前設定來源(預設 landmarks.yaml,冪等)
+# 2. 確保三服務在跑
+docker start vllm-nemotron-omni-nvfp4    # Nemotron :31010
+nemohermes sentinel recover               # Hermes :8642
+# Falcon Perception 應已開機自啟           # :18793
+
+# 3. 套用 sandbox 即時情報白名單 policy
+nemohermes sentinel policy-add --from-file nemoclaw/policies/sky-eye-recon.yaml --yes
+
+# 4. 登錄頻道 + 啟動常駐 supervisor
 python3 nemoclaw/register_channels.py
+sudo systemctl start nemoclaw-sentinel
 
-# 3. 啟動自主巡檢。正式常駐請使用下方 systemd;臨時展示才以 nohup 啟動一份。
-nohup bash nemoclaw/nemoclaw-supervisor.sh >/dev/null 2>&1 &
-
-# 4. 治理稽核 dashboard + incident flight recorder + event media
-python3 nemoclaw/dashboard/app.py     # http://<host>:8099
-
-# 5. 隨時看統計 / 最近事件飛行紀錄
-python3 nemoclaw/eval.py
-nemoclaw/nemoclaw-flight-recorder --latest 3
+# 5. 開 dashboard
+python3 nemoclaw/dashboard/app.py         # http://localhost:8099
 ```
+
+驗證環境:`bash nemoclaw/demo_prep.sh`(3 步檢查清單)
 
 ---
 
-## 攝影機來源(可切換)
-
-`NEMOCLAW_CHANNELS_FILE` 決定監看哪批攝影機:
-
-| 來源 | 設定檔 | 內容 |
-|---|---|---|
-| 全球地標(預設) | `landmarks.yaml` | live 來源;火煙/可疑物/人群偏離升級至 Nemotron |
-| 本地 replay | `channels.yaml` | 4 類危害各 4 部影片,供重現與評測 |
-| 世界路口/道路公開攝影機 | `world_channels.yaml` | 公開道路/路口 live 來源;火煙或交通/行人量偏離基線才升級 |
-
-```bash
-# 切換到世界路口/道路公開攝影機
-export NEMOCLAW_CHANNELS_FILE=$NEMOCLAW_DIR/world_channels.yaml
-export NEMOCLAW_MAX_PER_CYCLE=2          # live 較慢,每輪少查幾路
-python3 nemoclaw/register_channels.py    # url channel 直接插入,不需本地檔
-```
-
-新增攝影機:在 `world_channels.yaml` 加一筆 `url`(任何 ffmpeg 可讀的 rtsp / http(s) / HLS 串流)。
-`feed.grab_frame` 與 `sentinel-analyze-video` 會把 URL 視為 live 串流,抓當前幀即關閉連線。
-若要讓 agent 定期搜尋並納入新來源,設定 `NEMOCLAW_DISCOVERY_ENABLED=1`:
-- 使用 `landmarks.yaml` 時預設 `profile=landmark`,結果寫入 `discovered.yaml`。
-- 使用 `world_channels.yaml` 時預設 `profile=traffic`,agent 會搜尋 **intersection / traffic light / public traffic CCTV** 這類 live cam,結果寫入 `discovered_traffic.yaml` 並以 `traffic` 規則巡檢。
-
-手動觸發交通來源探索:
-```bash
-python3 nemoclaw/nemoclaw-discover --profile traffic --max 2
-```
-預設 `NEMOCLAW_DISCOVERY_ENABLED=0`,正式展示只顯示人工核驗過的六路地標,避免歷史探索結果地點誤標或臨時失效。
-使用 `landmarks.yaml` 時 Dashboard 第一段為地標天眼牆,每個縮圖均來自該路最近一次成功巡檢後的遮罩快照。
-
-## 通知策略
-
-`policy.yaml` 的 `severity_routing` 決定哪些嚴重度推 Telegram。**目前預設:所有嚴重度(含 low)都通知**——每個確認事件都推,由 `dedup_window_seconds`(5 分)防同一事件洗版,`quiet_hours.allow_severity` 設為全部(24/7 通知)。
-要改回「只有 medium 以上才通知」,把 `low.actions` 拿掉 `notify` 即可。
-
-## 常駐部署(systemd)
-
-```bash
-sudo cp nemoclaw/nemoclaw-sentinel.service /etc/systemd/system/   # 範本(自行填 User/路徑)
-sudo systemctl daemon-reload && sudo systemctl enable --now nemoclaw-sentinel
-sudo systemctl status nemoclaw-sentinel        # 狀態
-sudo journalctl -u nemoclaw-sentinel -f        # 即時記錄
-```
-用 `Environment=` 設定來源與間隔(例:世界攝影機、每 3 分鐘):
-```ini
-Environment=NEMOCLAW_CHANNELS_FILE=/path/Security-AI-Agent/nemoclaw/world_channels.yaml
-Environment=NEMOCLAW_INTERVAL=180        # 每輪之間隔秒數(預設 30)
-Environment=NEMOCLAW_MAX_PER_CYCLE=2
-Environment=NEMOCLAW_DISCOVERY_ENABLED=1 # 選用:定期自找路口/道路 live cam
-```
-> 開機自啟 + 崩潰自重啟。注意:世界 live 攝影機一輪本身約數分鐘(MJPEG 抓幀慢),**實際週期 = 輪時間 + 間隔**。
-> `nemoclaw-supervisor.sh` 使用單例鎖;已啟用 systemd 時不要另開第二份 `nohup` supervisor。
-
----
-
-## Demo 腳本(完整錄製本見 [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md))
-
-1. 展示 dashboard 首頁 **N×N 監控牆**(預設 4×4 · 22 路世界路口)+ 右側「📡 即時事件」。
-2. 火災/異常片段被 Falcon sweep 觸發 → Nemotron 多模態確認 → NemoClaw 治理 → Telegram 收到**人臉已馬賽克**的證據。
-3. **嚴重事件後的 3 源跨來源驗證**:展開「🛰 OpenShell 沙箱二次調查紀錄」,看 Hermes 在 sandbox 內真的 `curl weather.gov / USGS / HN` 3 個即時源,寫出「來源 1 證實 / 來源 2 無訊號 / 來源 3 ...」5 行 verdict。
-4. **跨地標關聯**:看「🌐 跨地標關聯偵測」面板,5 分鐘窗 ≥2 路同類事件自動升級。
-5. 點 dashboard 的 `flight` 連結:逐步展示 Falcon sweep → Nemotron raw answer → NemoClaw triage → policy decision → sandbox 二次調查。
-6. 展示 `eval.py`:通知、去重、阻擋、注入旗標統計,證明不洗版。
-
----
-
-## 檔案佈局
+## 📁 主要檔案
 
 ```
 nemoclaw/
-  nemoclaw.env          環境(venv PATH、Nemotron endpoint、Telegram from hermes .env)
-  channels.yaml         本地 16 路 channel ↔ 影片 ↔ event_type
-  landmarks.yaml        地標天眼牆 live source(security_anomaly gate)
-  world_channels.yaml   世界公開攝影機(台灣國道 CCTV live URL)
-  register_channels.py  登錄 channel(file 走 add_file_channel;url 走 stream)
-  sqlite_store.py       SQLite 後端(channels + events,免 MongoDB)
-  event_query_sqlite.py sentinel-event-query 的 sqlite 實作(summary/latest/event/media/cameras)
-  db_factory.py         後端工廠(NEMOCLAW_DB_BACKEND=sqlite/mongo 切換)
-  feed.py               playhead 模擬 live
-  wall_snapshots.py     地標牆最新遮罩巡檢快照(僅 redacted 對外)
-  falcon_client.py      Falcon /infer 客戶端
-  media.py              事件錄影切片 + Falcon 標記圖 artifact
-  sweep.py / nemoclaw-sweep   便宜感知 sweep([SILENT] idiom)
-  orchestrator.py       確定性編排(挑選/輪巡 + Nemotron 確認分級 + 防注入框架)
-  flight_recorder.py / nemoclaw-flight-recorder
-                        事件飛行紀錄(sweep→Nemotron→NemoClaw→policy)
-  nemoclaw-cycle        一次自主週期 CLI
-  nemoclaw-supervisor.sh  long-running 監督迴圈(watchdog)
-  nemoclaw-sentinel.service  systemd 常駐服務範本(開機自啟/崩潰自重啟)
-  policy.py / policy.yaml     4 類護欄決策
-  act.py / nemoclaw-act       政策閘(唯一對外出口,稽核)
-  redact.py             PII 人臉馬賽克
-  notify.py             Telegram sender
-  audit.py              稽核軌跡(jsonl + mongo)
-  eval.py               決策統計 / exactly-once 驗證
-  dashboard/app.py      N×N 監控牆 + 即時事件 + 治理稽核 dashboard(:8099)
-  hermes_followup.py    OpenShell sandbox 3 源跨來源即時情報爬蟲(weather/USGS/HN/OpenSky)
-  correlation.py        跨地標關聯偵測(5min 窗 ≥2 路同類事件升級)
-  policies/sky-eye-recon.yaml  NemoClaw custom policy preset(白名單 4 個即時情報源)
-  report.py             自主事件報告(escalate/report 動作 → 自動產單一事件報告)
-  watchdog.py           健康監測:Nemotron/Falcon/NemoClaw 服務狀態與狀態轉換記錄
-  briefing.py / nemoclaw-briefing  自主情勢簡報(agent 排程,非人問)
-  discover.py / nemoclaw-discover  agent 自主 yt-dlp 探索新世界路口/地標(traffic+landmark profiles)
-  demo_prep.sh          錄製前一鍵環境備妥(服務/頻道/矩陣/清單)
-  tests/                114 個單元測試(政策閘/防注入/地標牆/編排/處置/健康監測/SQLite/...)
+  dashboard/app.py              N×N 監控牆 + 即時事件 + 治理稽核(:8099 + /wall)
+  orchestrator.py               R2 級聯編排(sweep→Nemotron→Hermes→policy→followup)
+  sweep.py                      Falcon cheap-gate sweep
+  nemoclaw_triage.py            真 NemoClaw Hermes triage(:8642)
+  hermes_followup.py            OpenShell sandbox 3 源跨來源即時情報爬蟲
+  correlation.py                跨地標關聯偵測(5min 窗 ≥2 路同類)
+  discover.py                   agent 自主 yt-dlp 探索(traffic / landmark 兩個 profile)
+  policy.py / act.py            Policy gate(唯一對外出口,稽核)
+  audit.py / flight_recorder.py 全程稽核 + 事件飛行紀錄
+  redact.py                     人臉 redaction(隱私 by design)
+  thoughts.py                   第一人稱思考流 ticker
+  briefing.py                   自主情勢簡報(agent 排程)
+  baseline.py                   per-camera 自學基線(cold-start floor=2)
+  watchdog.py                   服務健康監測(transition log)
+  curiosity.py                  自主好奇心任務(idle channel 主動巡)
+  feed_health.py                channel state watchdog
+  world_channels.yaml           seed 22 路世界路口(政府公開 CCTV + YouTube 24/7)
+  landmarks.yaml                seed 全球地標(備用 profile)
+  policies/sky-eye-recon.yaml   NemoClaw custom policy(4 個即時情報白名單 hosts)
+  nemoclaw-sentinel.service     systemd 常駐(開機自啟 / 崩潰自重啟)
+  nemoclaw-supervisor.sh        long-running supervisor loop(watchdog + cycle + discover)
+  tests/                        136 個單元測試
 ```
 
-## 技術棧
+---
 
-Python 3 · vLLM(Nemotron-3-Nano-Omni-30B-NVFP4)· Falcon Perception ·
-**SQLite(預設資料後端,免 server)** / MongoDB(選用)· ffmpeg · OpenCV · Telegram Bot API · DGX Spark GB10(aarch64, sm_121)。
+## 🎬 Demo 腳本
 
-### 資料後端(SQLite / MongoDB 可切換)
-`NEMOCLAW_DB_BACKEND` 決定 channel/event 後端:
-- **`sqlite`(預設)** — nemoclaw 自帶 `sqlite_store.py`(channels + events),DB 檔在 `NEMOCLAW_SQLITE_PATH`(預設 `nemoclaw/sentinel.db`),**免 MongoDB server**,與 FPG 共用的 mongo 完全脫鉤。
-- **`mongo`** — 沿用 FPG 共用的 `database` 模組(MongoDB)。
+完整錄製本見 [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)。摘要:
 
-所有工具/`register_channels` 透過 `db_factory.py` 取得後端,切換不必改各處程式。
+1. **首頁 N×N 監控牆**(0:00-0:25) — 22 路世界路口,切版面 9/25
+2. **狀態:本地推理**(0:25-0:50) — `nemohermes sentinel status` 證明 Nemotron + NemoClaw 都在本機
+3. **政策白名單**(0:50-1:15) — `nemohermes sentinel policy-list` 看 `sky-eye-recon` preset
+4. **🛰 OpenShell 3 源驗證**(1:15-1:45) — 展開「事件紀錄」內的 followup 卡片,看 Hermes 在 sandbox 真 `curl` 即時源
+5. **🌐 跨地標關聯**(1:45-2:05) — 看 correlation panel
+6. **flight recorder**(2:05-2:20) — 點任一事件「查證據鏈」
+7. **定格**(2:20-2:30) — 監控牆 + 即時事件 panel
 
-**`sentinel-event-query` 基本查詢(summary / latest / event / media / cameras)與 `sentinel-violation-report` 基本報表在 sqlite 後端可用** — 由 `event_query_sqlite.py` 提供,完全不載入 bson / mongo `database` 模組;sqlite 後端執行 CLI 時自動轉派,輸出 JSON / PDF 形狀對齊 mongo 版。`violation-report` 在 sqlite 後端把 `event_query_sqlite` 當 QUERY drop-in(`filter_events`/`enrich_event`/`attach_media_delivery`/`filter_violations_only`),PDF 產生本身與後端無關。`sqlite_store.insert_event` 同時相容 FPG mongo 風格大寫鍵(`Event_type_id`/`Channel_id`/`Description` 等),因此 `sentinel-video-ingest` 寫入的事件可被正確查詢與入報。
-> 限制:event type/class 的**外部名稱查表**與 FPG 安全作業聚合仍依賴 mongo;sqlite 後端的 `--type` 支援內建/video-ingest/live-gate 別名(0-9),`--class` 僅吃數字,且無人工 confirm 狀態(`--status` 過濾不套用)。需要這些進階查詢時用 `NEMOCLAW_DB_BACKEND=mongo`。
+---
 
-複用既有 Security-AI-Agent / Sentinel 約 80% 資產(5 個 `sentinel-*` 工具、event-types、通知管線、持久化)。
-```
+## 📊 對應評審標準
+
+| 要求 | 實現 |
+|---|---|
+| **核心模型 = Nemotron** ✅ | 每個事件的多模態確認/描述/分級皆由 `Nemotron-3-Nano-Omni-30B`(本機 vLLM :31010) |
+| **autonomous / no human in loop** ✅✅ | production supervisor 自動觸發偵測 → 自主調查 → 治理 → 自主分級處置 → 自主上網爬即時情報跨源驗證 → 跨地標關聯升級;處置無人工核准 |
+| **long-running 架構** ✅ | cheap-sweep 連續、Nemotron 按需喚起、per-cycle watchdog;systemd 開機自啟、docker `restart=always` 自癒 |
+| **real task / deployable** ✅ | 真實 22 路世界路口巡檢;systemd 常駐、SQLite + JSONL 持久化、服務健康探針 |
+| **persistent deployment** ✅ | systemd `Restart=always` + `audit.jsonl` + `flight_recorder.jsonl` + `followups.jsonl` + `correlation_alerts.jsonl` |
+| **bonus:NemoClaw policy guardrails** ✅✅ | 真 NVIDIA NemoClaw(OpenShell + policy + intent verification);custom `sky-eye-recon` preset 白名單治理 sandbox 能爬什麼 |
+
+---
+
+## 🛠 技術棧
+
+- **多模態 VLM**:Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4(vLLM 0.20.0)
+- **治理 agent**:NVIDIA NemoClaw v0.0.50 + OpenShell sandbox + Hermes
+- **感知**:Falcon-Perception(OWL-ViT)
+- **硬體**:DGX Spark GB10(aarch64, sm_121)
+- **持久化**:SQLite(預設,免 DB server)/ MongoDB(選用)
+- **通知**:Telegram Bot
+- **網頁**:純 Python `http.server`(無外部 web framework)
+
+---
+
+## 📜 授權
+
+— Henry Lu · NemoClaw · NVIDIA Agent Hackathon · branch `nemoclaw-sentinel`
