@@ -48,45 +48,25 @@ On severe events, Hermes inside the sandbox actively `curl`s public realtime int
 
 ## 🏗 Architecture
 
-```
-                ┌─────────────────────────────────────────────────────┐
-                │  22 World Intersections (TW Freeway·TfL·Japan·EU·   │
-                │                          agent-discovered)          │
-                └─────────────────────────────────────────────────────┘
-                                          │
-                                          ▼
-            ┌──────────────────────────────────────────────────┐
-            │  LocateAnything-3B sweep (cheap, per-cycle)      │
-            │  → 1 frame / channel / cycle, OWL-ViT detection  │
-            └──────────────────────────────────────────────────┘
-                                          │ candidates
-                                          ▼
-            ┌──────────────────────────────────────────────────┐
-            │  Nemotron-3-Nano-Omni-30B (vLLM :31010)          │
-            │  → multimodal confirm + grade + borderline       │
-            │    re-investigation                              │
-            └──────────────────────────────────────────────────┘
-                                          │ confirmed
-                                          ▼
-            ┌──────────────────────────────────────────────────┐
-            │  Real NVIDIA NemoClaw / Hermes (:8642)           │
-            │  OpenShell sandbox + policy guardrails           │
-            │  → triage (severity guardrail vs OCR injection)  │
-            └──────────────────────────────────────────────────┘
-                                          │ severity ≥ high
-            ┌──────────────────────────────────────────────────┐
-            │  🛰 sandbox 3-source crawl (policy-whitelisted)  │
-            │  curl weather.gov + USGS + HN + OpenSky          │
-            │  → Hermes 5-line verdict fusion                  │
-            │     (confirm/refute/no-signal per source)        │
-            └──────────────────────────────────────────────────┘
-                                          │
-                                          ▼
-            ┌──────────────────────────────────────────────────┐
-            │  Policy gate (sole external exit)                │
-            │  → Telegram notify + audit + flight recorder     │
-            │  → Cross-camera correlation (5min ≥2 channels)   │
-            └──────────────────────────────────────────────────┘
+Full diagram at top of README: [`sky-eye-architecture.png`](docs/assets/sky-eye-architecture.png). Flow overview:
+
+```mermaid
+flowchart TD
+    A["📡 22 World Intersections<br/>TW Freeway · London TfL · Japan · Europe · agent-discovered"]
+    A --> B["🔍 LocateAnything-3B sweep<br/>cheap-gate · 1 frame / channel / cycle"]
+    B -->|candidates| C["🧠 Nemotron-3-Nano-Omni-30B<br/>multimodal confirm + grade + borderline re-investigation"]
+    C -->|confirmed| D["🛡 Real NVIDIA NemoClaw / Hermes<br/>OpenShell sandbox + policy guardrails<br/>OCR injection downgrade guard"]
+    D -->|severity ≥ high| E["🛰 Sandbox 3-source crawl<br/>weather.gov · USGS · HN · OpenSky<br/>policy-whitelisted"]
+    E --> F["🚦 Policy Gate · sole external exit<br/>dedup · routing · rate limit · PII redact"]
+    D -.->|severity &lt; high| F
+    F --> G["📣 Telegram notify<br/>+ audit.jsonl<br/>+ flight_recorder.jsonl"]
+    F --> H["🌐 Cross-camera correlation<br/>5min ≥2 channels → coordinated alert"]
+    G --> I[("💾 SQLite<br/>incidents + channels")]
+
+    style C fill:#1e3a8a,color:#fff,stroke:#3b82f6
+    style D fill:#7c2d12,color:#fff,stroke:#fb923c
+    style E fill:#155e75,color:#fff,stroke:#22d3ee
+    style F fill:#581c87,color:#fff,stroke:#a78bfa
 ```
 
 ---

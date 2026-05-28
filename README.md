@@ -48,42 +48,25 @@
 
 ## 🏗 架構
 
-```
-                ┌─────────────────────────────────────────────────────┐
-                │  22 路世界路口 (台灣國道·TfL·日本·歐洲·自主發現)     │
-                └─────────────────────────────────────────────────────┘
-                                          │
-                                          ▼
-            ┌──────────────────────────────────────────────────┐
-            │  LocateAnything-3B sweep (cheap, per-cycle)      │
-            │  → 1 frame / channel / cycle, OWL-ViT detection  │
-            └──────────────────────────────────────────────────┘
-                                          │ 候選
-                                          ▼
-            ┌──────────────────────────────────────────────────┐
-            │  Nemotron-3-Nano-Omni-30B (vLLM :31010)          │
-            │  → 多模態確認 + 分級 + 信心邊界自主再查           │
-            └──────────────────────────────────────────────────┘
-                                          │ confirmed
-                                          ▼
-            ┌──────────────────────────────────────────────────┐
-            │  真 NVIDIA NemoClaw / Hermes (:8642)             │
-            │  OpenShell 沙箱 + policy guardrails              │
-            │  → triage(severity 防 OCR injection 降級)        │
-            └──────────────────────────────────────────────────┘
-                                          │ severity ≥ high
-            ┌──────────────────────────────────────────────────┐
-            │  🛰 sandbox 3 源獨立爬蟲(by policy 白名單)       │
-            │  curl weather.gov + USGS + HN + OpenSky          │
-            │  → Hermes 5 行 verdict 融合(證實/否認/無訊號)    │
-            └──────────────────────────────────────────────────┘
-                                          │
-                                          ▼
-            ┌──────────────────────────────────────────────────┐
-            │  Policy gate(唯一對外出口)                      │
-            │  → Telegram 通知 + audit + flight recorder       │
-            │  → 跨地標關聯偵測(5min ≥2 路 → 升級協同警報)    │
-            └──────────────────────────────────────────────────┘
+完整圖見 README 頂端 [`sky-eye-architecture.png`](docs/assets/sky-eye-architecture.png)。流程概覽:
+
+```mermaid
+flowchart TD
+    A["📡 22 路世界路口<br/>台灣國道 · 倫敦 TfL · 日本 · 歐洲 · 自主發現"]
+    A --> B["🔍 LocateAnything-3B sweep<br/>cheap-gate · 1 frame / channel / cycle"]
+    B -->|候選| C["🧠 Nemotron-3-Nano-Omni-30B<br/>多模態確認 + 分級 + 信心邊界自主再查"]
+    C -->|confirmed| D["🛡 真 NVIDIA NemoClaw / Hermes<br/>OpenShell 沙箱 + policy guardrails<br/>OCR injection 降級守門"]
+    D -->|severity ≥ high| E["🛰 Sandbox 3 源獨立爬蟲<br/>weather.gov · USGS · HN · OpenSky<br/>policy 白名單治理"]
+    E --> F["🚦 Policy Gate · 唯一對外出口<br/>dedup · routing · rate limit · PII redact"]
+    D -.->|severity < high| F
+    F --> G["📣 Telegram 通知<br/>+ audit.jsonl<br/>+ flight_recorder.jsonl"]
+    F --> H["🌐 跨地標關聯偵測<br/>5min ≥2 路 → 協同警報升級"]
+    G --> I[("💾 SQLite<br/>incidents + channels")]
+
+    style C fill:#1e3a8a,color:#fff,stroke:#3b82f6
+    style D fill:#7c2d12,color:#fff,stroke:#fb923c
+    style E fill:#155e75,color:#fff,stroke:#22d3ee
+    style F fill:#581c87,color:#fff,stroke:#a78bfa
 ```
 
 ---
