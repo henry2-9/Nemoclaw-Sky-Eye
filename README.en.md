@@ -4,6 +4,10 @@
 
 **繁體中文版本:** [README.md](README.md)
 
+![NemoClaw Sky Eye Architecture](docs/assets/sky-eye-architecture.png)
+
+> Main flow: world intersections / public landmarks → cheap sweep → Nemotron multimodal confirmation → NVIDIA NemoClaw / Hermes sandbox governance → 3-source realtime verification → policy gate → dashboard / audit / redacted alerts.
+
 ---
 
 ## ✨ Key Features

@@ -4,6 +4,10 @@
 
 **English version:** [README.en.md](README.en.md)
 
+![NemoClaw 天眼系統架構](docs/assets/sky-eye-architecture.png)
+
+> 主鏈路:世界路口/公共地標影像 → cheap sweep 初篩 → Nemotron 多模態確認 → NVIDIA NemoClaw / Hermes 治理沙箱 → 3 源即時查證 → policy gate → dashboard / audit / redacted alerts。
+
 ---
 
 ## ✨ 主要特色
