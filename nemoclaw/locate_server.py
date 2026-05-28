@@ -42,7 +42,10 @@ MAX_NEW_TOKENS = int(os.environ.get("LOCATE_MAX_NEW_TOKENS", "192"))
 # Sweep cheap-gate 只需 boolean,cap 在常識上限避免雜訊污染 baseline 與 dashboard。
 COUNT_CAP = int(os.environ.get("LOCATE_COUNT_CAP", "30"))
 
-BOX_RE = re.compile(r"<box>(?:<\d+>\s*){4}</box>")
+# Capture the 4 integers inside each <box>...</box>. The model emits the
+# coordinates normalised to a 0-999 grid (Qwen2.5-VL convention); the calling
+# client is responsible for scaling to image pixel dimensions.
+BOX_RE = re.compile(r"<box>\s*<(\d+)>\s*<(\d+)>\s*<(\d+)>\s*<(\d+)>\s*</box>")
 
 
 def _log(msg):
@@ -95,9 +98,20 @@ def detect_one(image, category):
     if isinstance(text_out, (list, tuple)):
         text_out = text_out[0]
     raw = str(text_out)
-    n = min(len(BOX_RE.findall(raw)), COUNT_CAP)
+    matches = BOX_RE.findall(raw)
+    # boxes are normalised 0-999 ints emitted as (x1, y1, x2, y2). Skip degenerate.
+    boxes: list[list[int]] = []
+    for m in matches[:COUNT_CAP]:
+        try:
+            x1, y1, x2, y2 = (int(v) for v in m)
+        except (ValueError, TypeError):
+            continue
+        if x2 <= x1 or y2 <= y1:
+            continue
+        boxes.append([x1, y1, x2, y2])
+    n = len(boxes)
     _log(f"[{category!r}] n={n}")
-    return n
+    return n, boxes
 
 
 class H(BaseHTTPRequestHandler):
@@ -137,14 +151,23 @@ class H(BaseHTTPRequestHandler):
             self._send_json(400, {"error": f"image load failed: {e}"})
             return
         categories = [c.strip() for c in (query or "").split(",") if c.strip()]
-        counts = {}
+        counts: dict[str, int] = {}
+        boxes_per_cat: dict[str, list[list[int]]] = {}
         for cat in categories:
             try:
-                counts[cat] = detect_one(image, cat)
+                n, boxes = detect_one(image, cat)
             except Exception as e:
                 _log(f"detect_one({cat!r}) failed: {e}")
-                counts[cat] = 0
-        self._send_json(200, {"counts": counts, "backend": "locate-anything-3b"})
+                n, boxes = 0, []
+            counts[cat] = n
+            boxes_per_cat[cat] = boxes
+        self._send_json(200, {
+            "counts": counts,
+            "boxes": boxes_per_cat,
+            "boxes_scale": 999,            # normalisation grid (0..999)
+            "image_size": [image.width, image.height],
+            "backend": "locate-anything-3b",
+        })
 
     def log_message(self, *a):
         pass
