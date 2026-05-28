@@ -46,8 +46,6 @@ except Exception:
 
 AUDIT = os.environ.get("NEMOCLAW_AUDIT_PATH",
                        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "audit.jsonl"))
-ATTACK_MATRIX = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "attack_matrix.json")
-
 def _rows():
     if not os.path.exists(AUDIT):
         return []
@@ -174,7 +172,6 @@ tbody tr:hover{background:rgba(255,255,255,.045)} tbody tr:last-child td{border-
 .ok{color:#34d399;font-weight:700} .bad{color:#f87171;font-weight:700}
 .tag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;text-transform:uppercase;letter-spacing:0}
 .tag-live{background:#113126;color:#47db9a;border:1px solid #285a46}
-.tag-test{background:#382122;color:#ff8c8c;border:1px solid #6f3638}
 .primary-grid{display:grid;grid-template-columns:minmax(610px,1.6fr) minmax(340px,.82fr);gap:16px;align-items:start}
 .primary-grid .panel{margin-bottom:0}
 .ops{display:grid;grid-template-columns:repeat(5,minmax(125px,1fr));gap:1px;background:#253039;
@@ -182,12 +179,6 @@ tbody tr:hover{background:rgba(255,255,255,.045)} tbody tr:last-child td{border-
 .op{background:#10171c;padding:12px 15px}.op-label{display:block;color:#8d9aa3;font-size:11px;margin-bottom:5px}
 .op strong{font-size:17px;color:#eef4f4}.op strong.good{color:#47db9a}
 .op-note{font-size:11px;color:#8d9aa3;margin-top:4px}
-.drill video{display:block;width:100%;height:auto;aspect-ratio:16/10;max-height:none;object-fit:cover;border-radius:6px}
-.drill-result{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
-.drill-result div{padding:9px 8px;background:#151e24;border-radius:6px;text-align:center}
-.drill-result span{display:block;color:#8d9aa3;font-size:11px;margin-bottom:4px}
-.drill-result strong{font-size:13px}
-.drill-actions{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:12px;font-size:12px}
 .cta{display:inline-flex;align-items:center;padding:8px 12px;background:#18323b;border:1px solid #2c6472;border-radius:6px;font-weight:700}
 .media-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 video,img{width:100%;max-height:440px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);
@@ -275,13 +266,6 @@ details.audit-more table{font-size:12.5px}
 .fu-foot .plan-auto{color:#86efac;background:rgba(34,197,94,.1);padding:2px 7px;border-radius:6px}
 .fu-foot .plan-fallback{color:#fbbf24;background:rgba(245,158,11,.1);padding:2px 7px;border-radius:6px}
 .fu-foot .plan-multi{color:#c4b5fd;background:rgba(139,92,246,.1);padding:2px 7px;border-radius:6px}
-.tag-unlinked{background:#292f35;color:#cbd5e1;border:1px solid #46515b}
-.fu-warning{color:#fbbf24;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.30);
-  border-radius:6px;padding:7px 9px;margin:8px 0;font-size:12px}
-.fu-unlinked{margin-top:12px}
-.fu-unlinked summary{cursor:pointer;color:#cbd5e1;font-size:13px;padding:8px 10px;
-  background:rgba(255,255,255,.04);border-radius:6px;list-style:none}
-.fu-unlinked[open] summary{margin-bottom:10px}
 .fu-verdict{margin:8px 0;background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px}
 .fu-verdict .vr{font-size:12.5px;line-height:1.65;padding:2px 0}
 .fu-verdict .vr-confirm{color:#86efac}
@@ -589,9 +573,8 @@ def _cascade_html():
 
 
 def _render_command_center(rows, health=None):
-    live_rows = [r for r in rows if r.get("trigger_origin") == "scheduled"]
+    live_rows = [r for r in rows if r.get("trigger_origin", "scheduled") == "scheduled"]
     scheduled = len(live_rows)
-    demos = sum(1 for r in rows if r.get("trigger_origin") == "demo_manual")
     uptime = _uptime_str()
     health = health if health is not None else _health_now()
     now = time.time()
@@ -599,10 +582,6 @@ def _render_command_center(rows, health=None):
                    and (now - r.get("ts", 0)) <= 3600]
     live_label, live_color = (_threat(active_live, now=now) if active_live
                               else ("無現行警報", "#34d399"))
-    demo = _latest_demo_row(rows)
-    demo_label = _sev_zh(demo.get("severity")) if demo else "—"
-    demo_color = _THREAT[_SEV_RANK.get((demo or {}).get("severity"), 0)][1]
-    demo_ts = str((demo or {}).get("ts_iso", "")).replace("T", " ")[:16] or "尚無演練"
     service_ok = all(health.get(k) == "up" for k in ("nemotron", "falcon", "nemoclaw")) if health else False
     service = "正常" if service_ok else ("異常" if health else "未知")
     service_cls = "good" if service_ok else ("bad" if health else "")
@@ -612,8 +591,6 @@ def _render_command_center(rows, health=None):
   <div class=op><span class=op-label>運行時間</span><strong>{uptime}</strong></div>
   <div class=op><span class=op-label>LIVE 狀態</span><strong style='color:{live_color}'>{live_label}</strong>
     <div class=op-note>累計確認 {scheduled} 起</div></div>
-  <div class=op><span class=op-label>TEST 最近結果</span><strong style='color:{demo_color}'>{demo_label}</strong>
-    <div class=op-note>{html.escape(demo_ts)} · 共 {demos} 筆</div></div>
 </section>"""
 
 
@@ -841,7 +818,7 @@ def _render_wall_page(layout=16):
 
 
 def _render_live_events(rows):
-    """主頁右側即時事件 panel(暗色 glass,取代 attack_scene)。
+    """主頁右側即時事件 panel(暗色 glass)。
     拉 audit ≥medium 最近 12 條,critical/high/medium 上色標出,含 trace_id 跳轉。"""
     events = _wall_events(rows, limit=12)
     if events:
@@ -965,10 +942,8 @@ def _render_followups(audit_rows=None):
         body = ("<div class=empty>無 sandbox 二次調查(等待 high/critical 事件觸發)</div>")
     else:
         cards = []
-        unlinked = []
         for f in items:
             audit_row = audit_by_trace.get(f.get("trace_id"), {})
-            origin = f.get("trigger_origin") or audit_row.get("trigger_origin")
             ts = (f.get("ts_iso") or "時間未知").replace("T", " ")
             elapsed = f.get("elapsed_ms", 0)
             cmds_html = ""
@@ -987,128 +962,27 @@ def _render_followups(audit_rows=None):
             src_badge = src_badge_map.get(plan_src, src_badge_map["multi-source-recipe"])
             loc = f.get("channel_name") or f"ch{f.get('channel','')}"
             verdict_html = _render_verdict_lines(f.get("conclusion") or "")
-            origin_badge = {
-                "scheduled": "<span class='tag tag-live'>LIVE 觸發</span>",
-                "demo_manual": "<span class='tag tag-test'>TEST 受控演練</span>",
-            }.get(origin, "<span class='tag tag-unlinked'>未連結</span>")
-            warning = ("" if origin else
-                       "<div class=fu-warning>未連結 LIVE/TEST 事件，不代表目前告警狀態。</div>")
             trace_html = ""
             if audit_row:
                 q = urllib.parse.urlencode({"trace_id": f.get("trace_id", "")})
                 trace_html = f"<a href='/trace?{q}'>查看證據鏈</a>"
             card = (
                 f"<div class=fu-card>"
-                f"<div class=fu-head><span class=ch>{origin_badge} 🛰 {html.escape(loc)} · "
+                f"<div class=fu-head><span class=ch>🛰 {html.escape(loc)} · "
                 f"{html.escape(f.get('event_type',''))} "
                 f"({_sev_zh(f.get('severity'))})</span>"
                 f"<span class=muted style='font-size:11.5px'>{html.escape(ts)} · {elapsed}ms</span></div>"
-                f"{warning}"
                 f"<div class=fu-verdict>{verdict_html}</div>"
                 f"<div class=fu-cmds>{cmds_html}</div>"
                 f"<div class=fu-foot>{src_badge}<span class=gov>🛡 OpenShell 沙箱治理</span>"
                 f"<span>· {len(f.get('commands') or [])} 個獨立來源 · 真上網爬公共 API</span>"
                 f"{trace_html}</div></div>")
-            if origin:
-                cards.append(card)
-            else:
-                unlinked.append(card)
-        linked_body = (f"<div class=fu-grid>{''.join(cards)}</div>" if cards else
-                       "<div class=empty>無已標示來源的二次調查事件</div>")
-        archive = (
-            f"<details class=fu-unlinked><summary>未連結事件紀錄 {len(unlinked)} 筆 · "
-            f"不代表 LIVE 現況</summary><div class=fu-grid>{''.join(unlinked)}</div></details>"
-            if unlinked else "")
-        body = linked_body + archive
+            cards.append(card)
+        body = f"<div class=fu-grid>{''.join(cards)}</div>"
     return (f"<section class='panel glass'><h3>🛰 OpenShell 沙箱二次調查紀錄 "
             f"<span class=muted style='font-size:11px;font-weight:400'>"
             f"Hermes 自主規劃 read-only 指令 → 跑沙箱 → 寫結論</span></h3>{body}</section>")
 
-
-def _latest_media_row(rows):
-    """Select the latest significant event with media, including manual attack demos."""
-    for r in reversed(rows):
-        if r.get("severity") in (None, "", "low"):
-            continue
-        urls = (r.get("media_artifacts") or {}).get("urls") or {}
-        if urls.get("clip") or urls.get("falcon_annotated") or urls.get("frame"):
-            return r
-    return None
-
-
-def _latest_demo_row(rows):
-    for r in reversed(rows):
-        if r.get("trigger_origin") == "demo_manual" and _latest_media_row([r]):
-            return r
-    return None
-
-
-def _render_attack_scene(rows):
-    """Render deterministic abnormal proof separately from the normal live wall."""
-    r = _latest_demo_row(rows)
-    if not r:
-        return ("<section class='panel glass drill'>"
-                "<h3><span class='tag tag-test'>TEST</span> 攻擊演練</h3>"
-                "<div class=empty>尚無演練紀錄</div>"
-                "</section>")
-    urls = (r.get("media_artifacts") or {}).get("urls") or {}
-    clip = urls.get("clip") or ""
-    poster = urls.get("frame") or urls.get("falcon_annotated") or ""
-    sev = _sev_zh(r.get("severity"))
-    q = urllib.parse.urlencode({"trace_id": r.get("trace_id", "")})
-    poster_attr = f" poster='{html.escape(poster)}'" if poster else ""
-    video_html = (f"<video controls muted loop playsinline preload='metadata'{poster_attr} "
-                  f"src='{html.escape(clip)}'></video>" if clip else "<div class=empty>無錄影切片</div>")
-    blocked = "已阻擋" if r.get("injection_detected") else "未標記"
-    action = "已升級" if r.get("escalated") else "已判定"
-    return f"""<section class='panel glass drill'>
-  <div class=wall-head><h3><span class='tag tag-test'>TEST</span> 攻擊演練</h3>
-    <span class='badge b-dedup'>受控重現</span></div>
-  {video_html}
-  <div class=drill-result>
-    <div><span>場景</span><strong>火煙</strong></div>
-    <div><span>假指令</span><strong class=bad>{blocked}</strong></div>
-    <div><span>結果</span><strong class=bad>{sev} · {action}</strong></div>
-  </div>
-  <div class=drill-actions><span class=muted>NemoClaw 防護</span><a class=cta href='/trace?{q}'>查看證據鏈</a></div>
-</section>"""
-
-
-def _render_attack_matrix():
-    """Policy regression panel; the recorded attack scene proves video-to-governance behavior."""
-    if not os.path.exists(ATTACK_MATRIX):
-        return ""
-    try:
-        rep = json.load(open(ATTACK_MATRIX, encoding="utf-8"))
-    except Exception:
-        return ""
-    rows = ""
-    for r in rep.get("rows", []):
-        blocked = "<span class=ok>✅ 通過</span>" if r.get("defended") else "<span class=bad>❌ 失敗</span>"
-        recognized = ("<span class='badge b-inj'>⚠ 識破</span>" if r.get("injection_flagged")
-                      else "<span class=muted>—</span>")
-        sev = ("<span class=ok>維持嚴重</span>" if r.get("severity_retained")
-               else f"<span class=bad>被降為{_sev_zh(r.get('severity_after'))}</span>")
-        action = "ALLOW · notify 路由" if r.get("still_notifies") else html.escape(str(r.get("policy_decision", "")))
-        rows += (f"<tr><td><b>{html.escape(r.get('name',''))}</b></td>"
-                 f"<td><code>{html.escape(r.get('modality',''))}</code></td>"
-                 f"<td class=muted>{html.escape(r.get('attack',''))}</td>"
-                 f"<td>{recognized}</td><td>{sev}</td><td>{blocked}</td>"
-                 f"<td><span class='badge b-gov'>🛡 NemoClaw 治理</span></td>"
-                 f"<td>{action}</td></tr>")
-    n, t = rep.get("defended", 0), rep.get("total", 0)
-    badge = (f"<span class='badge b-allow' style='font-size:13px'>{n}/{t} 回歸案例通過</span>"
-             if rep.get("all_defended") else f"<span class='badge b-block' style='font-size:13px'>{n}/{t} 有缺口</span>")
-    gen = html.escape(str(rep.get("generated_at", "")))
-    return (f"<section class='panel glass'><h3>🛡 Guardrail 回歸測試矩陣 {badge}"
-            f"<span class=muted style='font-size:11px;font-weight:400'>{gen}</span></h3>"
-            f"<p class=muted style='margin:0 0 14px;font-size:13px'>"
-            f"此矩陣以 production policy 函式對 5 種已解碼文字情境做 deterministic regression;"
-            f"影片攻擊演練證據請見 attack scene 的 flight recorder。"
-            f"</p>"
-            f"<table><thead><tr><th>輸入案例</th><th>已解碼來源</th><th>假指令內容</th><th>識破</th>"
-            f"<th>嚴重等級</th><th>回歸結果</th><th>治理者</th><th>處置</th></tr></thead>"
-            f"<tbody>{rows}</tbody></table></section>")
 
 def _trace_link(trace_id):
     if not trace_id:
@@ -1238,7 +1112,6 @@ class H(BaseHTTPRequestHandler):
         command_center = _render_command_center(rows, health)
         sky_eye_grid = _render_sky_eye_grid(selected_channel, layout=layout)
         thoughts_panel = _render_thoughts()
-        attack_scene = _render_attack_scene(rows)
         live_events = _render_live_events(rows)
         status_html = (_health_dots(health)
                        + "<span class=muted>每 5s 更新 · 檢視時暫停</span>")
@@ -1271,7 +1144,6 @@ class H(BaseHTTPRequestHandler):
             f"<details class=audit-more><summary>展開全部 · 另 {rest_count} 列</summary>"
             f"<table><tbody>{''.join(_incident_row(r) for r in recent[12:])}</tbody></table></details>"
             if rest_count > 0 else "")
-        attack_matrix = _render_attack_matrix()
         correlation_panel = _render_correlation()
         followups_panel = _render_followups(rows)
         html = f"""<!doctype html><html lang=zh-Hant><head><meta charset=utf-8>
@@ -1279,7 +1151,7 @@ class H(BaseHTTPRequestHandler):
 <style>{STYLE}</style></head><body><div class=wrap>
 <header class='head glass'>
   <div><div class=brand>NEMOCLAW · SKY EYE</div>
-  <div class=sub>世界路口監控牆 / 異常演練 · GB10 · <a href='/wall' style='color:#7fd6ff'>全螢幕監控牆 →</a></div></div>
+  <div class=sub>世界路口監控牆 · GB10 · <a href='/wall' style='color:#7fd6ff'>全螢幕監控牆 →</a></div></div>
   <div class=status>{status_html}</div>
 </header>
 <main class=primary-grid>{sky_eye_grid}{live_events}</main>
@@ -1290,8 +1162,6 @@ class H(BaseHTTPRequestHandler):
 <div class=tiles>{tiles}</div>
 <section class='panel glass'><h3>級聯效率</h3>
 <div class=stats>{eff}</div></section>
-{attack_scene}
-{attack_matrix}
 {thoughts_panel}
 <section class='panel glass'><h3>決策稽核軌跡 <span class=muted style='font-size:11px;font-weight:400'>最新 {len(recent)} 列</span></h3>
 <table><thead><tr><th>時間</th><th>Ch</th><th>類型</th><th>決策</th><th>治理</th><th>注入</th><th>動作</th><th>Flight</th><th>媒體</th><th>理由</th></tr></thead>

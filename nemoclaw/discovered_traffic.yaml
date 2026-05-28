@@ -23,3 +23,11 @@ channels:
   name: Hikvision Traffic Flow Analysis Came · 交通探索
   url: https://www.youtube.com/watch?v=PiOqMMOFQNw
   event_type: traffic
+- id: 126
+  name: Old Fort-Cason · 交通探索
+  url: https://www.youtube.com/watch?v=S0-r1dbNQvc
+  event_type: traffic
+- id: 127
+  name: MLK JR WAY & E YESLER WAY South · 交通探索
+  url: https://www.youtube.com/watch?v=oPf3sBExNLE
+  event_type: traffic

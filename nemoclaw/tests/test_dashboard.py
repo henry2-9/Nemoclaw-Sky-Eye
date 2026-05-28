@@ -5,37 +5,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from dashboard import app as dashboard
 
 
-def test_attack_demo_incident_can_be_featured_on_home_page():
-    row = {"channel": "19", "severity": "critical", "trigger_origin": "demo_manual",
-           "injection_detected": True, "escalated": True,
-           "media_artifacts": {"urls": {"clip": "/media/demo/redacted_clip.mp4",
-                                        "frame": "/media/demo/frame_redacted.jpg"}}}
-    assert dashboard._latest_media_row([row]) is row
-    rendered = dashboard._render_attack_scene([row])
-    assert "攻擊演練" in rendered
-    assert "已阻擋" in rendered
-    assert "查看證據鏈" in rendered
-    assert "poster='/media/demo/frame_redacted.jpg'" in rendered
-    assert "autoplay" not in rendered
-
-
-def test_command_center_separates_live_state_from_latest_test_result(monkeypatch):
+def test_command_center_shows_live_state_only(monkeypatch):
     monkeypatch.setattr(dashboard, "_uptime_str", lambda: "1h 2m")
-    rows = [
-        {"severity": "high", "trigger_origin": "demo_manual",
-         "ts_iso": "2026-05-26T17:26:22",
-         "media_artifacts": {"urls": {"frame": "/media/demo/frame_redacted.jpg"}}},
-    ]
-
     rendered = dashboard._render_command_center(
-        rows, health={"nemotron": "up", "falcon": "up", "nemoclaw": "up"})
-
+        [], health={"nemotron": "up", "falcon": "up", "nemoclaw": "up"})
     assert "LIVE 狀態" in rendered
     assert "無現行警報" in rendered
     assert "累計確認 0 起" in rendered
-    assert "TEST 最近結果" in rendered
-    assert ">高</strong>" in rendered
-    assert "2026-05-26 17:26" in rendered
+    assert "TEST" not in rendered
+    assert "攻擊" not in rendered
 
 
 def test_health_dots_identify_down_and_unknown_services():
@@ -131,25 +109,24 @@ def test_thought_stream_excludes_records_before_current_supervisor_start(monkeyp
     assert "test artifact" not in rendered
 
 
-def test_followup_inherits_test_origin_from_linked_audit_event(monkeypatch):
+def test_followup_links_trace_when_audit_row_present(monkeypatch):
     monkeypatch.setattr(
         dashboard._followup,
         "latest",
-        lambda n: [{"trace_id": "t-test", "channel": "19", "event_type": "fire_smoke",
-                    "severity": "high", "ts_iso": "2026-05-26T17:26:22",
-                    "commands": [], "conclusion": "綜合判斷: 真實 · 測試事件"}],
+        lambda n: [{"trace_id": "t-001", "channel": "201", "channel_name": "Times Square",
+                    "event_type": "fire_smoke", "severity": "high",
+                    "ts_iso": "2026-05-26T17:26:22",
+                    "commands": [], "conclusion": "綜合判斷: 真實 · 火災事件"}],
     )
 
-    rendered = dashboard._render_followups(
-        [{"trace_id": "t-test", "trigger_origin": "demo_manual"}])
+    rendered = dashboard._render_followups([{"trace_id": "t-001"}])
 
-    assert "TEST 受控演練" in rendered
+    assert "Times Square" in rendered
     assert "查看證據鏈" in rendered
     assert "2026-05-26 17:26:22" in rendered
-    assert "不代表目前告警狀態" not in rendered
 
 
-def test_followup_without_audit_origin_is_collapsed_as_non_live(monkeypatch):
+def test_followup_renders_without_audit_link(monkeypatch):
     monkeypatch.setattr(
         dashboard._followup,
         "latest",
@@ -160,7 +137,6 @@ def test_followup_without_audit_origin_is_collapsed_as_non_live(monkeypatch):
 
     rendered = dashboard._render_followups([])
 
-    assert "無已標示來源的二次調查事件" in rendered
-    assert "未連結事件紀錄 1 筆" in rendered
-    assert "不代表 LIVE 現況" in rendered
-    assert "不代表目前告警狀態" in rendered
+    assert "fire_smoke" in rendered
+    assert "綜合判斷" in rendered
+    assert "查看證據鏈" not in rendered
