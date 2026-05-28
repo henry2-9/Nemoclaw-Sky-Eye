@@ -12,19 +12,25 @@ import urllib.request
 
 
 def _services():
-    falcon = os.environ.get("FALCON_PERCEPTION_SERVER", "http://127.0.0.1:18793").rstrip("/")
+    """Probe the perception backend chosen by NEMOCLAW_PERCEPTION (default: locate).
+    Dashboard health key is "falcon" for back-compat (label is now LocateAnything)."""
+    perception = os.environ.get("NEMOCLAW_PERCEPTION", "locate")
+    if perception == "falcon":
+        peri = os.environ.get("FALCON_PERCEPTION_SERVER", "http://127.0.0.1:18793").rstrip("/")
+    else:
+        peri = os.environ.get("LOCATE_ANYTHING_SERVER", "http://127.0.0.1:18794").rstrip("/")
     hermes = os.environ.get("NEMOCLAW_HERMES_URL", "http://127.0.0.1:8642/v1/chat/completions")
     hermes_models = hermes.replace("/v1/chat/completions", "/v1/models")
     vlm = os.environ.get("VLM_API_URL", "http://127.0.0.1:31010/v1/chat/completions")
     vlm_models = vlm.replace("/v1/chat/completions", "/v1/models")
     return [
         ("nemotron", os.environ.get("VLM_HEALTH_URL", vlm_models)),
-        ("falcon", falcon + "/health"),
+        ("falcon", peri + "/health"),
         ("nemoclaw", hermes_models),
     ]
 
 
-def _probe(url, timeout=2.5):
+def _probe(url, timeout=12):
     try:
         with urllib.request.urlopen(urllib.request.Request(url, method="GET"), timeout=timeout) as r:
             return 200 <= getattr(r, "status", 200) < 500
