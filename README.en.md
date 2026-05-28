@@ -26,20 +26,20 @@
 ## 📸 UI Preview
 
 ### Home: N×N Surveillance Wall + Live Events + Autonomous Investigation
-![Sky Eye Dashboard](docs/screenshots/home.png)
+![Sky Eye Dashboard](nemoclaw/docs/screenshots/home.png)
 
-> 👉 **Screenshot pending**: `docs/screenshots/home.png` (home page N×N wall + right-side 📡 Live Events)
+> 👉 **Screenshot pending**: `nemoclaw/docs/screenshots/home.png` (home page N×N wall + right-side 📡 Live Events)
 > Temporary reference: `home-legacy.png` (older focus-grid layout, same dark theme)
 
 ### Full-screen Surveillance Wall: `/wall?layout=16`
-![Surveillance Wall](docs/screenshots/wall.png)
+![Surveillance Wall](nemoclaw/docs/screenshots/wall.png)
 
-> 👉 **Screenshot pending**: `docs/screenshots/wall.png` (full-screen wall mode, 4×4 dark theme)
+> 👉 **Screenshot pending**: `nemoclaw/docs/screenshots/wall.png` (full-screen wall mode, 4×4 dark theme)
 
 ### OpenShell Sandbox 3-Source Cross-Verification
-![3-Source Cross-Verification](docs/screenshots/followup.png)
+![3-Source Cross-Verification](nemoclaw/docs/screenshots/followup.png)
 
-> 👉 **Screenshot pending**: `docs/screenshots/followup.png` (expand "Event Records & Tech Evidence" → 🛰 OpenShell Sandbox Investigation Records panel)
+> 👉 **Screenshot pending**: `nemoclaw/docs/screenshots/followup.png` (expand "Event Records & Tech Evidence" → 🛰 OpenShell Sandbox Investigation Records panel)
 
 ---
 
@@ -146,7 +146,7 @@ nemoclaw/
 
 ## 🎬 Demo Script
 
-Full recording script: [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md). Summary:
+Full recording script: [`nemoclaw/DEMO_SCRIPT.md`](nemoclaw/DEMO_SCRIPT.md). Summary:
 
 1. **Home N×N Wall** (0:00-0:25) — 22 world intersections, switch layouts 9/25
 2. **Status: Local Inference** (0:25-0:50) — `nemohermes sentinel status` proves Nemotron + NemoClaw both local
