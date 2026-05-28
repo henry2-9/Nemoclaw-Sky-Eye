@@ -317,53 +317,6 @@ details.audit-more table{font-size:12.5px}
 .dev-empty{padding:32px 14px;text-align:center;color:#6b7280;font-size:12.5px}
 .dev a{color:#7fd6ff;text-decoration:none;font-size:11px}
 .dev a:hover{text-decoration:underline}
-/* 監控牆 /wall */
-body.wall-body{background:#f5f6f7;color:#1f2937}
-.wall-wrap{max-width:1760px;margin:0 auto;padding:18px 22px 28px}
-.whead{display:flex;justify-content:space-between;align-items:flex-end;
-  margin-bottom:18px;gap:20px;flex-wrap:wrap}
-.whead h1{margin:0;font-size:22px;color:#111827;font-weight:800}
-.whead .wsub{color:#6b7280;font-size:13px;margin-top:4px}
-.lay-chooser{display:flex;gap:6px;align-items:center;font-size:13px;color:#374151}
-.lay-chooser a{background:#fff;border:1px solid #d1d5db;color:#374151;
-  padding:5px 12px;border-radius:6px;font-weight:600;text-decoration:none}
-.lay-chooser a:hover{background:#f3f4f6}
-.lay-chooser a.on{background:#10b981;color:#fff;border-color:#10b981}
-.wmain{display:grid;grid-template-columns:1fr 280px;gap:14px}
-@media (max-width:980px){.wmain{grid-template-columns:1fr}}
-.wgrid{display:grid;gap:10px}
-.wcell{position:relative;aspect-ratio:16/9;background:#9ca3af;border-radius:6px;
-  background-size:cover;background-position:center;overflow:hidden;
-  border:1px solid #9ca3af;display:flex;align-items:center;justify-content:center}
-.wcell.empty{background:#9ca3af;border:2px dashed #6b7280}
-.wcell .placeholder-dot{width:10px;height:10px;border-radius:50%;background:#4b5563}
-.wchip{position:absolute;top:6px;left:6px;display:flex;align-items:center;gap:6px;
-  background:rgba(17,24,39,.78);color:#fff;font-size:11.5px;font-weight:600;
-  padding:4px 9px;border-radius:5px;max-width:calc(100% - 90px);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wchip .wdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:#10b981;
-  box-shadow:0 0 6px #10b981}
-.wchip .wdot.off{background:#ef4444;box-shadow:0 0 6px #ef4444}
-.wchip .wdot.unknown{background:#9ca3af;box-shadow:none}
-.wts{position:absolute;top:6px;right:6px;background:rgba(17,24,39,.78);color:#fff;
-  font-size:11px;padding:3px 7px;border-radius:4px;font-family:ui-monospace,Consolas,monospace}
-.wside{background:#fff;border:1px solid #e5e7eb;border-radius:8px;display:flex;flex-direction:column;
-  max-height:calc(100vh - 140px);overflow:hidden}
-.whdr{padding:14px 16px;border-bottom:1px solid #e5e7eb;font-weight:700;color:#111827;
-  font-size:14px;background:#f9fafb;border-radius:8px 8px 0 0}
-.wfeed{flex:1;overflow-y:auto;padding:8px}
-.wev{padding:10px 12px;border-radius:6px;margin-bottom:6px;background:#f9fafb;
-  border-left:3px solid #d1d5db;font-size:12.5px;line-height:1.5}
-.wev.sev-critical{border-left-color:#dc2626;background:#fef2f2}
-.wev.sev-high{border-left-color:#f59e0b;background:#fffbeb}
-.wev.sev-medium{border-left-color:#3b82f6;background:#eff6ff}
-.wev-ts{color:#6b7280;font-size:11px;font-family:ui-monospace,Consolas,monospace}
-.wev-name{color:#111827;font-weight:600;margin:2px 0}
-.wev-sum{color:#374151}
-.wev-empty{padding:40px 16px;text-align:center;color:#9ca3af;font-size:13px}
-.wnav{display:flex;gap:6px;font-size:12.5px}
-.wnav a{color:#6b7280;text-decoration:none}
-.wnav a:hover{color:#10b981}
 """
 
 _BADGE_CLS = {"ALLOW": "b-allow", "BLOCK": "b-block", "DEDUP": "b-dedup", "ABSTAIN": "b-abstain"}
@@ -693,33 +646,6 @@ def _render_sky_eye_grid(selected_channel=None, layout=16):
 _WALL_LAYOUTS = {1: 1, 4: 2, 6: 3, 9: 3, 16: 4, 25: 5}
 
 
-def _wall_entries():
-    """Reuse the sky-eye-grid logic to pull active channels + snapshots."""
-    if not _feed_health or not _register_channels:
-        return [], ""
-    active_marker = os.path.join(_NEMODIR, "active_channels_file")
-    active_file = os.environ.get("NEMOCLAW_CHANNELS_FILE", "")
-    try:
-        marked = open(active_marker, encoding="utf-8").read().strip()
-        active_file = marked or active_file
-    except OSError:
-        pass
-    if not active_file:
-        return [], ""
-    try:
-        channels = _register_channels.load_channels(
-            active_file, merge_discovered=_register_channels.discovery_enabled())
-    except Exception:
-        return [], ""
-    full = _feed_health.state()
-    entries = []
-    for c in channels:
-        k = str(c.get("id", ""))
-        v = full.get(k, {"name": c.get("name", ""), "last": "", "ok": None})
-        entries.append((c, k, v, wall_snapshots.preview(k)))
-    return entries, active_file
-
-
 def _wall_events(rows, limit=12):
     """Pull recent severity ≥ medium audit rows for the right-side feed."""
     out = []
@@ -743,78 +669,6 @@ def _wall_events(rows, limit=12):
     return out
 
 
-def _render_wall_page(layout=16):
-    """Pure surveillance-wall view at /wall.  N×N camera grid + right-side live event feed."""
-    layout = layout if layout in _WALL_LAYOUTS else 16
-    cols = _WALL_LAYOUTS[layout]
-    entries, active_file = _wall_entries()
-    source_label = {
-        "landmarks.yaml": "全球地標天眼",
-        "world_channels.yaml": "世界路口/道路監視器",
-        "channels.yaml": "本地 Replay",
-    }.get(os.path.basename(active_file or ""), "已設定來源")
-
-    cells = []
-    for i in range(layout):
-        if i < len(entries):
-            c, k, v, snap = entries[i]
-            name = html.escape((c.get("name") or "")[:36])
-            ok = v.get("ok")
-            dot = "on" if ok is True else ("off" if ok is False else "unknown")
-            ts = html.escape((snap.get("captured_at", "") if snap else "")[-8:])
-            if snap and snap.get("url"):
-                bg = f"style=\"background-image:url('{html.escape(snap['url'])}')\""
-                center = ""
-            else:
-                bg = ""
-                center = "<div class=placeholder-dot></div>"
-            ts_html = f"<div class=wts>{ts}</div>" if ts else ""
-            cells.append(
-                f"<div class=wcell {bg}><div class=wchip>"
-                f"<span class='wdot {dot}'></span>{name}</div>{ts_html}{center}</div>")
-        else:
-            cells.append("<div class='wcell empty'><div class=placeholder-dot></div></div>")
-
-    rows = _rows()
-    events = _wall_events(rows, limit=12)
-    if events:
-        feed_html = "".join(
-            f"<div class='wev sev-{e['severity']}'>"
-            f"<div class=wev-ts>{html.escape(e['ts'])} · ch{html.escape(str(e['channel']))} · "
-            f"{_sev_zh(e['severity'])}</div>"
-            f"<div class=wev-name>{html.escape(e['name'])}</div>"
-            f"<div class=wev-sum>{html.escape(e['summary'])}</div></div>"
-            for e in events)
-    else:
-        feed_html = "<div class=wev-empty>等待後端推送或稍後再試</div>"
-
-    chooser = "".join(
-        f"<a class='{('on' if n == layout else '')}' href='/wall?layout={n}'>{n}</a>"
-        for n in (1, 4, 6, 9, 16, 25))
-
-    return f"""<!doctype html><html lang=zh-Hant><head><meta charset=utf-8>
-<meta http-equiv=refresh content=5><title>即時事件監控 · NemoClaw Sky Eye</title>
-<style>{STYLE}</style></head><body class=wall-body>
-<div class=wall-wrap>
-<header class=whead>
-  <div>
-    <h1>即時事件監控</h1>
-    <div class=wsub>多路攝影機監控牆與即時偵測框疊圖 ({html.escape(source_label)} · {len(entries)} 路在巡)</div>
-  </div>
-  <div class=lay-chooser>
-    <span class=wnav><a href='/'>← 綜合儀表板</a></span>
-    <span style='color:#9ca3af;margin:0 8px'>·</span>
-    版面 {chooser}
-  </div>
-</header>
-<main class=wmain>
-  <div class=wgrid style='grid-template-columns:repeat({cols},1fr)'>{''.join(cells)}</div>
-  <aside class=wside>
-    <div class=whdr>即時事件</div>
-    <div class=wfeed>{feed_html}</div>
-  </aside>
-</main>
-</div></body></html>"""
 
 
 def _render_live_events(rows):
@@ -1080,12 +934,7 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/wall":
-            qs = urllib.parse.parse_qs(parsed.query)
-            try:
-                layout = int((qs.get("layout") or ["16"])[0])
-            except ValueError:
-                layout = 16
-            self._send_html(_render_wall_page(layout))
+            self.send_error(404, "wall page removed; use home page wall")
             return
         if parsed.path == "/trace":
             qs = urllib.parse.parse_qs(parsed.query)
@@ -1151,7 +1000,7 @@ class H(BaseHTTPRequestHandler):
 <style>{STYLE}</style></head><body><div class=wrap>
 <header class='head glass'>
   <div><div class=brand>NEMOCLAW · SKY EYE</div>
-  <div class=sub>世界路口監控牆 · GB10 · <a href='/wall' style='color:#7fd6ff'>全螢幕監控牆 →</a></div></div>
+  <div class=sub>世界路口監控牆 · GB10</div></div>
   <div class=status>{status_html}</div>
 </header>
 <main class=primary-grid>{sky_eye_grid}{live_events}</main>
