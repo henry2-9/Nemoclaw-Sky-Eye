@@ -12,7 +12,7 @@ import uuid
 
 
 STAGE_LABELS = {
-    "sweep_selected": "Falcon sweep selected candidate",
+    "sweep_selected": "LocateAnything sweep selected candidate",
     "nemotron_question": "Nemotron question built",
     "nemotron_raw_answer": "Nemotron raw answer",
     "nemotron_grading": "Nemotron parsed grading",

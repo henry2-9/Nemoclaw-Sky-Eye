@@ -412,7 +412,7 @@ _FIELD_LABELS = {
     "channel": "頻道", "event_type": "事件類型", "question": "提問", "answer": "模型回答",
     "confidence": "信心", "confirmed": "已確認", "severity": "嚴重度", "summary": "摘要",
     "visible_text": "畫面文字", "ocr_text": "OCR 文字", "cheap_evidence": "初步證據",
-    "counts": "偵測數", "falcon_query": "Falcon 查詢", "frame_path": "影格", "playhead_sec": "播放秒數",
+    "counts": "偵測數", "falcon_query": "感知查詢", "frame_path": "影格", "playhead_sec": "播放秒數",
     "governed_by": "治理者", "rationale": "理由", "recommended_action": "建議處置", "cheap_text": "畫面文字",
     "triage_guardrail": "安全護欄", "decision": "決策", "actions": "動作", "channels": "通知管道",
     "injection_detected": "偵測注入", "reasons": "理由", "policy_hits": "政策命中", "media_refs": "媒體",
@@ -551,7 +551,7 @@ def _health_dots(health):
     if not health:
         return "<span class=muted>服務狀態未知</span>"
     out = []
-    for k, label in (("nemotron", "Nemotron"), ("falcon", "Falcon"), ("nemoclaw", "NemoClaw")):
+    for k, label in (("nemotron", "Nemotron"), ("falcon", "LocateAnything"), ("nemoclaw", "NemoClaw")):
         state = health.get(k)
         cls = "" if state == "up" else (" off" if state == "down" else " unknown")
         suffix = "" if state == "up" else (" 異常" if state == "down" else " 未知")
@@ -1004,7 +1004,7 @@ def _media_links(row):
     if urls.get("clip"):
         parts.append(f"<a href='{html.escape(urls['clip'])}'>clip</a>")
     if urls.get("falcon_annotated"):
-        parts.append(f"<a href='{html.escape(urls['falcon_annotated'])}'>falcon</a>")
+        parts.append(f"<a href='{html.escape(urls['falcon_annotated'])}'>感知</a>")
     return " / ".join(parts)
 
 def _render_media_panel(row):
@@ -1023,7 +1023,7 @@ def _render_media_panel(row):
     )
     image_url = annot or frame
     marked = bool(counts and any(int(v or 0) > 0 for v in counts.values()))
-    image_title = "Falcon 標記圖" if annot and marked else "事件影格"
+    image_title = "感知標記圖" if annot and marked else "事件影格"
     image_html = (
         f"<a href='{html.escape(image_url)}'><img src='{html.escape(image_url)}' alt='{image_title}'></a>"
         if image_url else "<div class=empty>無標記圖</div>"
@@ -1034,7 +1034,7 @@ def _render_media_panel(row):
   <div><h4>錄影切片</h4>{video_html}</div>
   <div><h4>{html.escape(image_title)}</h4>{image_html}</div>
 </div>
-<p class=muted>Falcon 查詢:{html.escape(str(query) or "—")} · 偵測:{html.escape(_humanize_value(counts) if counts else "—")}</p>
+<p class=muted>感知查詢:{html.escape(str(query) or "—")} · 偵測:{html.escape(_humanize_value(counts) if counts else "—")}</p>
 </section>"""
 
 def _render_trace(trace_id):

@@ -18,7 +18,7 @@ echo ""
 FAIL=0
 echo -e "${B}[1/3] 服務探針${D}"
 for pair in "Nemotron|http://127.0.0.1:31010/v1/models" \
-            "Falcon|http://127.0.0.1:18793/health" \
+            "LocateAnything|http://127.0.0.1:18794/health" \
             "NemoClaw-Hermes|http://127.0.0.1:8642/v1/models"; do
   name="${pair%%|*}"; url="${pair##*|}"
   if curl -fsS --max-time 4 "$url" >/dev/null 2>&1; then ok "$name OK"; else bad "$name 不可用 ($url)"; FAIL=1; fi

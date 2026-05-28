@@ -34,7 +34,7 @@ def _notification_text(incident, decision):
     if urls.get("clip"):
         text += f"\n錄影切片: {urls['clip']}"
     if urls.get("falcon_annotated"):
-        text += f"\nFalcon標記圖: {urls['falcon_annotated']}"
+        text += f"\n感知標記圖: {urls['falcon_annotated']}"
     return text
 
 

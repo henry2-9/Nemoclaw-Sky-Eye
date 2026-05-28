@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""每相機自學基線:把每個 (channel, key) 最近 N 次 Falcon count 滑動視窗存起來,
+"""每相機自學基線:把每個 (channel, key) 最近 N 次 LocateAnything count 滑動視窗存起來,
 agent 自己學「這個鏡頭平常多少人」,偏離才警示——取代靜態門檻,讓 sweep
 看起來像在「適應現場」,不是查表。"""
 import json

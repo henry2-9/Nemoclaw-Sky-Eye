@@ -43,7 +43,7 @@ def stale_pick(channels, audit_path=None, min_idle_minutes=15, now=None):
 
 
 def curiosity_candidate(channel, *, now=None):
-    """把一個 stale channel 包成 sweep 風格的候選(無 Falcon 證據,
+    """把一個 stale channel 包成 sweep 風格的候選(無 LocateAnything 證據,
     investigate 仍會用 Nemotron 親自確認;source=curiosity 供軌跡識別)。"""
     return {
         "channel": channel["id"], "channel_name": channel.get("name", ""),

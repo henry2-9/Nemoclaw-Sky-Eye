@@ -7,7 +7,7 @@ import thoughts as _thoughts
 import feed_health as _feed_health
 import wall_snapshots as _wall_snapshots
 
-# event_type → (Falcon query, 觸發關鍵類別, 門檻)
+# event_type → (LocateAnything query, 觸發關鍵類別, 門檻)
 RULES = {
     "fire_smoke":      ("fire, smoke",        ["fire", "smoke"],  1),
     "intrusion":       ("person",             ["person"],         1),

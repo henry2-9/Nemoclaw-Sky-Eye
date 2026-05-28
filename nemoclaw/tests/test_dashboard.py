@@ -19,7 +19,7 @@ def test_command_center_shows_live_state_only(monkeypatch):
 def test_health_dots_identify_down_and_unknown_services():
     rendered = dashboard._health_dots({"nemotron": "up", "falcon": "down"})
 
-    assert "Falcon 異常" in rendered
+    assert "LocateAnything 異常" in rendered
     assert "dot off" in rendered
     assert "NemoClaw 未知" in rendered
     assert "dot unknown" in rendered

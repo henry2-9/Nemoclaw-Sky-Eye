@@ -97,7 +97,7 @@ def test_notification_text_includes_media_links():
     )
     assert "事件頁: http://dash/trace?trace_id=t1" in text
     assert "錄影切片: http://dash/media/t1/clip.mp4" in text
-    assert "Falcon標記圖: http://dash/media/t1/falcon_annotated.jpg" in text
+    assert "感知標記圖: http://dash/media/t1/falcon_annotated.jpg" in text
 
 
 def test_allow_persists_confirmed_incident_to_sqlite(monkeypatch):

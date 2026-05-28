@@ -193,7 +193,7 @@ def investigate(candidate, analyze_fn, triage_fn=None, followup_fn=None):
         "evidence_citations": [
             {"tool": "sentinel-analyze-video", "finding": g["summary"]},
             {"tool": "nemoclaw-sweep",
-             "finding": f"falcon counts {candidate.get('cheap_evidence', {}).get('counts')}"},
+             "finding": f"perception counts {candidate.get('cheap_evidence', {}).get('counts')}"},
         ],
         "cheap_text": cheap_text,   # 供政策閘掃畫面內注入
         "governed_by": "local",

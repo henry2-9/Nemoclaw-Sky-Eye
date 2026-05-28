@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""健康監測 watchdog:探測核心服務(Nemotron / Falcon / NemoClaw)健康。
+"""健康監測 watchdog:探測核心服務(Nemotron / LocateAnything / NemoClaw)健康。
 
 供 dashboard 即時顯示與降級判斷。CLI 模式會把健康變化記入 health.jsonl;
 服務重新可用時記錄 recovered 狀態，實際重啟由服務管理機制負責。"""

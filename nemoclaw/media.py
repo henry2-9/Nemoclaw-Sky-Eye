@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Incident media artifacts: event clip, representative frame, Falcon overlay."""
+"""Incident media artifacts: event clip, representative frame, perception overlay."""
 import json
 import mimetypes
 import os
