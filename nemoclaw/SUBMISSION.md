@@ -2,6 +2,9 @@
 
 > **Nemotron 負責看,NVIDIA NemoClaw 負責守。** 單台 DGX Spark **GB10** 上、7×24 自主巡檢世界路口/公共地標的天眼 agent —— 自學 cheap-gate 基線、自主調查與處置、自主上網爬取即時情報做跨來源驗證、事件處置**不需人工核准**,每個動作都受 NemoClaw 政策護欄治理、全程可稽核。
 
+## 🎬 Demo 影片
+**https://www.youtube.com/watch?v=kmVBfhoFfS0** (2:30)
+
 ## 它做什麼
 主視覺是 **N×N 監控牆**(預設 4×4 · 可切 1/4/6/9/16/25):台灣高公局 6 路國道 CCTV + 倫敦 TfL JamCam 6 路 + 日本/歐洲 24/7 公開直播 + agent 自主 yt-dlp 探索的世界路口,總計 ~22 路。右側即時事件 panel 拉 audit ≥medium 最近事件依嚴重度上色。
 

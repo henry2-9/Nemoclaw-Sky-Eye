@@ -4,6 +4,12 @@
 
 **繁體中文版本:** [README.md](README.md)
 
+## 🎬 Demo Video (2:30)
+
+[![NemoClaw Sky Eye Demo](https://img.youtube.com/vi/kmVBfhoFfS0/maxresdefault.jpg)](https://www.youtube.com/watch?v=kmVBfhoFfS0)
+
+> 👉 Click to watch on YouTube · 7 shots: N×N wall / OpenShell 3-source verify / cross-camera correlation / Flight Recorder
+
 ![NemoClaw Sky Eye Architecture](docs/assets/sky-eye-architecture.png)
 
 > Main flow: world intersections / public landmarks → cheap sweep → Nemotron multimodal confirmation → NVIDIA NemoClaw / Hermes sandbox governance → 3-source realtime verification → policy gate → dashboard / audit / redacted alerts.
