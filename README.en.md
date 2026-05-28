@@ -164,7 +164,7 @@ Full recording script: [`nemoclaw/DEMO_SCRIPT.md`](nemoclaw/DEMO_SCRIPT.md). Sum
 
 - **Multimodal VLM**: Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4 (vLLM 0.20.0)
 - **Governance agent**: NVIDIA NemoClaw v0.0.50 + OpenShell sandbox + Hermes
-- **Perception**: **LocateAnything-3B** (NVIDIA · transformers serve; LocateAnything-3B OWL-ViT as env-switchable fallback)
+- **Perception**: **LocateAnything-3B** (NVIDIA · transformers serve)
 - **Hardware**: DGX Spark GB10 (aarch64, sm_121)
 - **Persistence**: SQLite (default, no DB server) / MongoDB (optional)
 - **Notification**: Telegram Bot
@@ -183,6 +183,6 @@ Full recording script: [`nemoclaw/DEMO_SCRIPT.md`](nemoclaw/DEMO_SCRIPT.md). Sum
 | Qwen2.5-3B-Instruct (LocateAnything backbone) | Qwen Research License | Non-commercial |
 | MoonViT-SO-400M (LocateAnything vision encoder) | MIT | ✅ Allowed |
 
-> ⚠ **This work is submitted for NVIDIA Agent Hackathon as research use**. For commercial deployment, swap LocateAnything-3B for Falcon Perception OWL-ViT (env `NEMOCLAW_PERCEPTION=falcon`) or obtain NVIDIA commercial license.
+> ⚠ **This work is submitted for NVIDIA Agent Hackathon as research use**. Commercial deployment requires obtaining an NVIDIA commercial license.
 
 — Henry Lu · NemoClaw Sentinel · NVIDIA Agent Hackathon · branch `nemoclaw-sentinel`
