@@ -19,3 +19,6 @@ thoughts.jsonl
 baseline.jsonl
 feed_health.json
 discovered.yaml
+correlation_alerts.jsonl
+followups.jsonl
+locate_server.log

@@ -171,7 +171,7 @@ nemoclaw/
 
 - **多模態 VLM**:Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4(vLLM 0.20.0)
 - **治理 agent**:NVIDIA NemoClaw v0.0.50 + OpenShell sandbox + Hermes
-- **感知**:**LocateAnything-3B**(NVIDIA · transformers serve;LocateAnything-3B OWL-ViT 為備援 env switch)
+- **感知**:**LocateAnything-3B**(NVIDIA · transformers serve;Falcon Perception OWL-ViT 為備援 env switch)
 - **硬體**:DGX Spark GB10(aarch64, sm_121)
 - **持久化**:SQLite(預設,免 DB server)/ MongoDB(選用)
 - **通知**:Telegram Bot
@@ -179,6 +179,17 @@ nemoclaw/
 
 ---
 
-## 📜 授權
+## 📜 授權與第三方模型 License
 
-— Henry Lu · NemoClaw · NVIDIA Agent Hackathon · branch `nemoclaw-sentinel`
+| 元件 | License | 商業用途 |
+|---|---|---|
+| 本 repo(NemoClaw Sentinel 程式碼) | MIT | ✅ 允許 |
+| **Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4** | NVIDIA Open Model License | 依模型 license 條款 |
+| **NVIDIA NemoClaw v0.0.50 / OpenShell** | Apache-2.0 | ✅ 允許 |
+| **LocateAnything-3B**(NVIDIA) | [NVIDIA License](https://huggingface.co/nvidia/LocateAnything-3B/blob/main/LICENSE) | ❌ **僅學術/研究,禁止商業使用**(除非 NVIDIA 授權) |
+| Qwen2.5-3B-Instruct(LocateAnything 底層) | Qwen Research License | 非商業 |
+| MoonViT-SO-400M(LocateAnything vision encoder) | MIT | ✅ 允許 |
+
+> ⚠ **本作品為 NVIDIA Agent Hackathon 研究用提交**。若要商業部署,LocateAnything-3B 需替換為 Falcon Perception OWL-ViT(env `NEMOCLAW_PERCEPTION=falcon` 切回)或洽 NVIDIA 商業授權。
+
+— Henry Lu · NemoClaw Sentinel · NVIDIA Agent Hackathon · branch `nemoclaw-sentinel`

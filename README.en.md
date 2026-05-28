@@ -182,6 +182,17 @@ Full recording script: [`nemoclaw/DEMO_SCRIPT.md`](nemoclaw/DEMO_SCRIPT.md). Sum
 
 ---
 
-## 📜 License
+## 📜 License & Third-Party Models
 
-— Henry Lu · NemoClaw · NVIDIA Agent Hackathon · branch `nemoclaw-sentinel`
+| Component | License | Commercial Use |
+|---|---|---|
+| This repo (NemoClaw Sentinel code) | MIT | ✅ Allowed |
+| **Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4** | NVIDIA Open Model License | Per model license terms |
+| **NVIDIA NemoClaw v0.0.50 / OpenShell** | Apache-2.0 | ✅ Allowed |
+| **LocateAnything-3B** (NVIDIA) | [NVIDIA License](https://huggingface.co/nvidia/LocateAnything-3B/blob/main/LICENSE) | ❌ **Academic/research only, no commercial use** (unless licensed by NVIDIA) |
+| Qwen2.5-3B-Instruct (LocateAnything backbone) | Qwen Research License | Non-commercial |
+| MoonViT-SO-400M (LocateAnything vision encoder) | MIT | ✅ Allowed |
+
+> ⚠ **This work is submitted for NVIDIA Agent Hackathon as research use**. For commercial deployment, swap LocateAnything-3B for Falcon Perception OWL-ViT (env `NEMOCLAW_PERCEPTION=falcon`) or obtain NVIDIA commercial license.
+
+— Henry Lu · NemoClaw Sentinel · NVIDIA Agent Hackathon · branch `nemoclaw-sentinel`
