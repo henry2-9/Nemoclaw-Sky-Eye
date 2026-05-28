@@ -6,7 +6,7 @@
 
 ## ▶️ 錄製前一鍵備妥
 ```bash
-cd ~/Security-AI-Agent
+cd ~/Security-AI-Agent     # 或 cd ~/Nemoclaw-Sky-Eye(視 git clone 目標而定)
 bash nemoclaw/demo_prep.sh           # 檢查 3 服務、登錄頻道、印就緒清單
 sudo systemctl status nemoclaw-sentinel   # 確認常駐服務已運行
 python3 nemoclaw/dashboard/app.py    # 另開一窗;瀏覽器 http://localhost:8099
