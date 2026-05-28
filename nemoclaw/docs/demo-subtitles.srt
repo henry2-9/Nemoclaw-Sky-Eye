@@ -1,0 +1,61 @@
+1
+00:00:00,000 --> 00:00:08,000
+NemoClaw Sky Eye — 24/7 自主世界路口監控
+跑在單台 DGX Spark GB10,Nemotron 看,真 NVIDIA NemoClaw 守
+
+2
+00:00:08,000 --> 00:00:18,000
+首頁 4×4 監控牆,共 22 路:台灣高公局、倫敦 TfL、東京渋谷、大阪道頓堀、柏林、阿姆斯特丹,
+以及 agent 自主 yt-dlp 探索的新路口
+
+3
+00:00:18,000 --> 00:00:25,000
+版面可切 1/4/6/9/16/25,右側「📡 即時事件」依嚴重度上色
+
+4
+00:00:25,000 --> 00:00:40,000
+核心推理是本機 Nemotron-3-Nano-Omni 30B
+治理交給真正的 NVIDIA NemoClaw,跑在 OpenShell 沙箱受 policy 護欄管
+零雲端推理
+
+5
+00:00:40,000 --> 00:00:50,000
+policy preset sky-eye-recon 開通 4 個白名單即時情報源
+agent 能爬什麼由 policy 治理
+
+6
+00:00:50,000 --> 00:01:05,000
+平時牆面只代表正常巡檢,只有異常候選才喚醒 30B Nemotron
+處置為自動模式,所有決策都有紀錄
+
+7
+00:01:05,000 --> 00:01:15,000
+💭 思考流:agent 第一人稱可見
+sweep / baseline / investigate / discover 都即時寫進來
+
+8
+00:01:15,000 --> 00:01:30,000
+🛰 OpenShell 沙箱二次調查:嚴重事件後 Hermes 主動 curl 公共即時情報
+weather.gov 政府氣象、USGS 即時地震、HN 即時討論
+
+9
+00:01:30,000 --> 00:01:45,000
+3 個獨立來源平行驗證
+Hermes 寫 5 行 verdict:每源證實/否認/無訊號 + 綜合判斷 + 建議
+
+10
+00:01:45,000 --> 00:02:05,000
+🌐 跨地標關聯偵測:5 分鐘窗 ≥2 路出現同類事件
+自動升級成全球協同警報,3+ 路 = critical
+不只單路偵測,還會跨多路 reasoning
+
+11
+00:02:05,000 --> 00:02:20,000
+Flight Recorder:每事件完整軌跡
+LocateAnything → Nemotron raw → grading → NemoClaw triage → policy decision → sandbox followup
+每一步都留證據
+
+12
+00:02:20,000 --> 00:02:30,000
+Nemotron 看,真 NVIDIA NemoClaw 守
+一台 GB10 上可常駐、可稽核、處置不需人工核准的自主安全 agent
