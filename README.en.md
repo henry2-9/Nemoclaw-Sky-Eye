@@ -11,7 +11,7 @@
 | Capability | Description |
 |---|---|
 | 🎥 **N×N Surveillance Wall** | 4×4 default; switchable to 1/4/6/9/16/25; Taiwan freeway CCTV + London TfL + Japan + Europe + agent-discovered = ~22 channels |
-| 🧠 **R2 Cascade Architecture** | Falcon cheap-sweep (cheap) → Nemotron-Omni multimodal confirmation (on-demand) → real NVIDIA NemoClaw governance |
+| 🧠 **R2 Cascade Architecture** | LocateAnything-3B visual grounding (cheap) → Nemotron-Omni multimodal confirmation (on-demand) → real NVIDIA NemoClaw governance |
 | 🛰 **3-Source Cross-Verification via OpenShell Sandbox** | On severe events, Hermes actively `curl`s `weather.gov + USGS + HN + OpenSky` (4 sub-hourly realtime sources) from inside the sandbox |
 | 🌐 **Cross-Camera Correlation** | ≥2 channels with same event_type within 5-min window → auto-escalate to coordinated alert (3+ = critical) |
 | 🔬 **Visible Autonomy** | First-person thought-stream ticker: agent's actions visible in real-time (sweep/baseline/investigate/discover/...) |
@@ -19,7 +19,7 @@
 | 🔒 **Privacy by Design** | Mandatory face redaction; raw frames return 403, only redacted artifacts served; dashboard URL strict allowlist |
 | 📋 **Flight Recorder** | Full per-event trace: sweep → Nemotron raw → grading → NemoClaw triage → policy decision → sandbox followup |
 | 💾 **Local Storage** | SQLite default (no DB server needed); MongoDB switchable |
-| ⚡ **Zero Cloud Inference** | Nemotron + Falcon + NemoClaw + dashboard all run on one GB10 |
+| ⚡ **Zero Cloud Inference** | Nemotron + LocateAnything + NemoClaw + dashboard all run on one GB10 |
 
 ---
 
@@ -53,7 +53,7 @@
                                           │
                                           ▼
             ┌──────────────────────────────────────────────────┐
-            │  Falcon Perception sweep (cheap, per-cycle)      │
+            │  LocateAnything-3B sweep (cheap, per-cycle)      │
             │  → 1 frame / channel / cycle, OWL-ViT detection  │
             └──────────────────────────────────────────────────┘
                                           │ candidates
@@ -97,7 +97,7 @@ source nemoclaw/nemoclaw.env
 # 2. Ensure 3 services running
 docker start vllm-nemotron-omni-nvfp4    # Nemotron :31010
 nemohermes sentinel recover               # Hermes :8642
-# Falcon Perception should be auto-started # :18793
+# LocateAnything server (bash nemoclaw/start-locate-anything.sh) # :18793
 
 # 3. Apply sandbox real-time intel whitelist policy
 nemohermes sentinel policy-add --from-file nemoclaw/policies/sky-eye-recon.yaml --yes
@@ -120,7 +120,7 @@ Environment check: `bash nemoclaw/demo_prep.sh` (3-step preflight)
 nemoclaw/
   dashboard/app.py              N×N wall + live events + audit dashboard (:8099 + /wall)
   orchestrator.py               R2 cascade orchestrator (sweep→Nemotron→Hermes→policy→followup)
-  sweep.py                      Falcon cheap-gate sweep
+  sweep.py                      LocateAnything visual grounding cheap-gate sweep
   nemoclaw_triage.py            Real NemoClaw Hermes triage (:8642)
   hermes_followup.py            OpenShell sandbox 3-source realtime intel crawler
   correlation.py                Cross-camera correlation (5min ≥2 channels same event_type)
@@ -175,7 +175,7 @@ Full recording script: [`nemoclaw/DEMO_SCRIPT.md`](nemoclaw/DEMO_SCRIPT.md). Sum
 
 - **Multimodal VLM**: Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4 (vLLM 0.20.0)
 - **Governance agent**: NVIDIA NemoClaw v0.0.50 + OpenShell sandbox + Hermes
-- **Perception**: Falcon-Perception (OWL-ViT)
+- **Perception**: **LocateAnything-3B** (NVIDIA · transformers serve; LocateAnything-3B OWL-ViT as env-switchable fallback)
 - **Hardware**: DGX Spark GB10 (aarch64, sm_121)
 - **Persistence**: SQLite (default, no DB server) / MongoDB (optional)
 - **Notification**: Telegram Bot

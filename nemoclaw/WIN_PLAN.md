@@ -47,7 +47,7 @@
 - **做什麼**:新首頁(B 重新定位為**自主運行觀測窗**,非互動控制台):
   - 首頁呈現:**「自主處置 · 無人工核准流程 · 已連續 Xh · 處理 N 起」**,並統計排程與手動 demo 觸發數。
   - **live 攝影機格**(週期快照,不連續解碼)+ **威脅等級** banner。
-  - **agent 思考即時流**:最新事件級聯逐步動畫(① Falcon→② Nemotron→③ NemoClaw→④ 政策→⑤ 處置),讓「它自己在跑」看得見。
+  - **agent 思考即時流**:最新事件級聯逐步動畫(① LocateAnything→② Nemotron→③ NemoClaw→④ 政策→⑤ 處置),讓「它自己在跑」看得見。
 - **為何贏**:10 秒看懂 + 用 audit 直接交代事件來源與處置路徑。
 - **工時** ~1 天 · 風險:抓幀效能(僅週期快取)· 複用:flight recorder、analyze 抓幀、glass UI。
 
@@ -61,7 +61,7 @@
 - **工時** ~0.5 天。**沒影片 = 0 分。**
 
 ### P1 ·【強化自主】
-- **健康監測 watchdog**:agent 自檢 Nemotron/Falcon/NemoClaw,將服務健康轉移記入監控首頁；復原仍由既有服務管理機制負責。
+- **健康監測 watchdog**:agent 自檢 Nemotron/LocateAnything/NemoClaw,將服務健康轉移記入監控首頁；復原仍由既有服務管理機制負責。
 - **自主情勢簡報**:agent **按自己排程**(非人問)定時用 Nemotron 產「過去 1 小時:2 起,最嚴重 ch5…」推播。
 
 ### P2 ·(預設不做,列未來)
@@ -85,7 +85,7 @@
 ## 5. 影片 demo 流程(證明「自主」,~3 分鐘)
 1. **排程監看**:`systemctl status nemoclaw-sentinel` 顯示 production loop 自動運作;處置流程無人工核准。
 2. **自主監控首頁**:「自主處置 · 無人工核准流程 · 連續 Xh」+ 觸發來源計數 + live 攝影機格 + 威脅等級。
-3. **看它自己跑一起事件**:Falcon 候選 →(不確定)→ **agent 自主調查** → Nemotron 確認 → NemoClaw 治理 → **agent 自動 escalate + 自動產報告** → 全程無人。
+3. **看它自己跑一起事件**:LocateAnything 候選 →(不確定)→ **agent 自主調查** → Nemotron 確認 → NemoClaw 治理 → **agent 自動 escalate + 自動產報告** → 全程無人。
 4. **真 NemoClaw 治理**:governed_by=nemoclaw-openshell。
 5. **自主防禦**:
 6. **健康監測**:展示 watchdog 的健康狀態與狀態轉移紀錄。

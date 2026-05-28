@@ -6,7 +6,7 @@
 主視覺是 **N×N 監控牆**(預設 4×4 · 可切 1/4/6/9/16/25):台灣高公局 6 路國道 CCTV + 倫敦 TfL JamCam 6 路 + 日本/歐洲 24/7 公開直播 + agent 自主 yt-dlp 探索的世界路口,總計 ~22 路。右側即時事件 panel 拉 audit ≥medium 最近事件依嚴重度上色。
 
 ```
-Falcon sweep(便宜,按巡檢週期)
+LocateAnything sweep(便宜,按巡檢週期)
    → 〔有候選〕→ Nemotron-Omni 多模態確認分級(本機 vLLM :31010)
    → 真 NVIDIA NemoClaw / OpenShell 沙箱 文字 triage(policy 治理)
    → 〔severity ≥ high〕→ OpenShell sandbox 3 源獨立交叉驗證
@@ -32,15 +32,15 @@ Falcon sweep(便宜,按巡檢週期)
 2. **用了真 NemoClaw,不是仿製**:官方 `curl|bash` 安裝,Hermes agent 跑在 OpenShell 沙箱、inference 路由到本機 Nemotron(零雲端);治理決策有 OpenShell policy 背書。
 3. **真實上網爬即時情報 + 3 源融合**:嚴重事件後 Hermes 在 OpenShell sandbox 內 `curl` 政府氣象警報 + USGS 即時地震 + OpenSky 即時航班 + HN 即時討論 4 個 sub-hourly 來源;然後寫 5 行 verdict(每源證實/否認/無訊號 + 綜合判斷 + 建議)。**能爬什麼由 policy 白名單治理,不是 prompt 喊話**。
 4. **跨地標關聯偵測**:5min 窗內 ≥2 路同類事件 → 自動升級「全球協同/同源注入」高優先警報,3+ 路 → critical。多攝影機 reasoning,不只單路偵測。
-5. **全程可稽核(Incident Flight Recorder)**:牆面平時只展示 redacted 最近巡檢快照;事件軌跡包含 Falcon 候選 → Nemotron 原始回答 → grading → NemoClaw triage → policy decision → sandbox 二次調查 stdout → Hermes verdict。
+5. **全程可稽核(Incident Flight Recorder)**:牆面平時只展示 redacted 最近巡檢快照;事件軌跡包含 LocateAnything 候選 → Nemotron 原始回答 → grading → NemoClaw triage → policy decision → sandbox 二次調查 stdout → Hermes verdict。
 
 ## 實機驗證
-全部跑在**一台 GB10**(Nemotron + Falcon + NemoClaw + dashboard 共存,零雲端推理)。
+全部跑在**一台 GB10**(Nemotron + LocateAnything + NemoClaw + dashboard 共存,零雲端推理)。
 - 22 路世界路口巡檢(6 台灣國道 + 6 倫敦 TfL + 渋谷 + 道頓堀 + Alexanderplatz + De Dam + 6 自主發現)
 - 136/136 單元測試通過
 
 ## 技術棧 / 復用
-Nemotron-3-Nano-Omni-NVFP4(vLLM)· NVIDIA NemoClaw / OpenShell · Falcon Perception · Telegram · **SQLite(預設,免 DB server)/ MongoDB(選用)** · GB10(aarch64, sm_121)。複用既有 Sentinel appliance 約 80%(5 個 `sentinel-*` 工具、event-types、通知、持久化);資料層與 FPG 共用 MongoDB 脫鉤,全 `sentinel-*` 工具經端到端煙霧驗證可在 SQLite 後端運作。
+Nemotron-3-Nano-Omni-NVFP4(vLLM)· NVIDIA NemoClaw / OpenShell · LocateAnything-3B · Telegram · **SQLite(預設,免 DB server)/ MongoDB(選用)** · GB10(aarch64, sm_121)。複用既有 Sentinel appliance 約 80%(5 個 `sentinel-*` 工具、event-types、通知、持久化);資料層與 FPG 共用 MongoDB 脫鉤,全 `sentinel-*` 工具經端到端煙霧驗證可在 SQLite 後端運作。
 
 ## 快速啟動
 ```bash

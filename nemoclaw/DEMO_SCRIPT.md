@@ -25,7 +25,7 @@ python3 nemoclaw/dashboard/app.py    # 另開一窗;瀏覽器 http://localhost:8
 | **3** | 0:50–1:15 | 首頁展開「事件紀錄與技術證據」 | 「平時牆面只代表正常巡檢;只有異常候選才喚醒 Nemotron。事件處置為自動模式,所有決策都有紀錄。」 | 指狀態帶 `服務正常 / 處置模式 自動`;指「💭 Agent 思考即時流」第一人稱看 agent 在做什麼 |
 | **4** | 1:15–1:45 | 滾到「🛰 OpenShell 沙箱二次調查紀錄」 | 「嚴重事件後 Hermes **真的在沙箱裡 curl 公共 API**:政府氣象警報、即時地震、即時航班、即時討論——3 個獨立來源平行驗證。可以爬什麼由 NemoClaw policy 白名單治理,不是 prompt 喊話。」 | 指 followup 卡片:`weather.gov / USGS / HN` 3 條指令的 stdout · 指 Hermes 結論 5 行 verdict |
 | **5** | 1:45–2:05 | 滾到「🌐 跨地標關聯偵測」 | 「不只單路偵測——5 分鐘窗內 ≥2 路出現同類事件,自動升級成『全球協同/同源注入』高優先警報。3 路以上 = critical。」 | 指 correlation alert 列表(若無,指「過去 5 分鐘各地標獨立」的安全狀態) |
-| **6** | 2:05–2:20 | dashboard 點證據鏈 | 「這起事件有 **flight recorder**:Falcon 候選 → Nemotron 原始回答 → NemoClaw triage → policy decision → sandbox 二次調查,每一步都留軌跡,並保存遮罩後事件影格與影片。」 | 點任一事件「查證據鏈」,指 `nemotron_raw_answer / nemoclaw_triage / policy_decision / hermes_followup` |
+| **6** | 2:05–2:20 | dashboard 點證據鏈 | 「這起事件有 **flight recorder**:LocateAnything 候選 → Nemotron 原始回答 → NemoClaw triage → policy decision → sandbox 二次調查,每一步都留軌跡,並保存遮罩後事件影格與影片。」 | 點任一事件「查證據鏈」,指 `nemotron_raw_answer / nemoclaw_triage / policy_decision / hermes_followup` |
 | **7** | 2:20–2:30 | 回 dashboard 定格 | 「**Nemotron 看,真 NemoClaw 守**——一台 GB10 上可常駐、可稽核、處置不需人工核准的自主世界路口監控。」 | 定格在 N×N 監控牆 + 即時事件 panel |
 
 ---

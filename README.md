@@ -11,7 +11,7 @@
 | 能力 | 說明 |
 |---|---|
 | 🎥 **N×N 監控牆** | 預設 4×4 · 可切 1/4/6/9/16/25;台灣高公局 + 倫敦 TfL + 日本 + 歐洲 + agent 自主發現,共 ~22 路 |
-| 🧠 **R2 級聯架構** | Falcon cheap-sweep(便宜) → Nemotron-Omni 多模態確認(按需) → 真 NVIDIA NemoClaw 治理 |
+| 🧠 **R2 級聯架構** | LocateAnything-3B 視覺定位(便宜) → Nemotron-Omni 多模態確認(按需) → 真 NVIDIA NemoClaw 治理 |
 | 🛰 **OpenShell sandbox 3 源跨來源驗證** | 嚴重事件後 Hermes 在沙箱內主動 `curl weather.gov + USGS + HN + OpenSky` 4 個 sub-hourly 即時源 |
 | 🌐 **跨地標關聯偵測** | 5 分鐘窗 ≥2 路同類事件 → 自動升級協同警報(3+ 路 = critical) |
 | 🔬 **可看見的自主性** | 第一人稱思考流 ticker:agent 在做什麼即時可見(sweep/baseline/investigate/discover/...) |
@@ -19,7 +19,7 @@
 | 🔒 **隱私 by design** | 人臉 redaction 強制;原始畫面 403,只送 redacted artifact;dashboard URL 限定白名單 |
 | 📋 **Flight Recorder** | 每事件完整軌跡:sweep → Nemotron raw → grading → NemoClaw triage → policy decision → sandbox followup |
 | 💾 **本地儲存** | SQLite 預設(無需 DB server);支援 MongoDB 切換 |
-| ⚡ **零雲端推理** | Nemotron + Falcon + NemoClaw + dashboard 全部跑在一台 GB10 |
+| ⚡ **零雲端推理** | Nemotron + LocateAnything + NemoClaw + dashboard 全部跑在一台 GB10 |
 
 ---
 
@@ -52,7 +52,7 @@
                                           │
                                           ▼
             ┌──────────────────────────────────────────────────┐
-            │  Falcon Perception sweep (cheap, per-cycle)      │
+            │  LocateAnything-3B sweep (cheap, per-cycle)      │
             │  → 1 frame / channel / cycle, OWL-ViT detection  │
             └──────────────────────────────────────────────────┘
                                           │ 候選
@@ -94,7 +94,7 @@ source nemoclaw/nemoclaw.env
 # 2. 確保三服務在跑
 docker start vllm-nemotron-omni-nvfp4    # Nemotron :31010
 nemohermes sentinel recover               # Hermes :8642
-# Falcon Perception 應已開機自啟           # :18793
+# LocateAnything server (bash nemoclaw/start-locate-anything.sh)           # :18793
 
 # 3. 套用 sandbox 即時情報白名單 policy
 nemohermes sentinel policy-add --from-file nemoclaw/policies/sky-eye-recon.yaml --yes
@@ -117,7 +117,7 @@ python3 nemoclaw/dashboard/app.py         # http://localhost:8099
 nemoclaw/
   dashboard/app.py              N×N 監控牆 + 即時事件 + 治理稽核(:8099 + /wall)
   orchestrator.py               R2 級聯編排(sweep→Nemotron→Hermes→policy→followup)
-  sweep.py                      Falcon cheap-gate sweep
+  sweep.py                      LocateAnything 視覺定位 cheap-gate sweep
   nemoclaw_triage.py            真 NemoClaw Hermes triage(:8642)
   hermes_followup.py            OpenShell sandbox 3 源跨來源即時情報爬蟲
   correlation.py                跨地標關聯偵測(5min 窗 ≥2 路同類)
@@ -172,7 +172,7 @@ nemoclaw/
 
 - **多模態 VLM**:Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4(vLLM 0.20.0)
 - **治理 agent**:NVIDIA NemoClaw v0.0.50 + OpenShell sandbox + Hermes
-- **感知**:Falcon-Perception(OWL-ViT)
+- **感知**:**LocateAnything-3B**(NVIDIA · transformers serve;LocateAnything-3B OWL-ViT 為備援 env switch)
 - **硬體**:DGX Spark GB10(aarch64, sm_121)
 - **持久化**:SQLite(預設,免 DB server)/ MongoDB(選用)
 - **通知**:Telegram Bot
