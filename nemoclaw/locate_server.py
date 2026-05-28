@@ -22,6 +22,14 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import torch
 from PIL import Image
+
+# Backward-compat shim:LocateAnything-3B 的 modeling_qwen2.py 用 transformers 4.x
+# 的 `is_flash_attn_greater_or_equal_2_10`,5.x 已改名為 `is_flash_attn_greater_or_equal`。
+import transformers.utils as _tu
+if not hasattr(_tu, "is_flash_attn_greater_or_equal_2_10"):
+    fn = getattr(_tu, "is_flash_attn_greater_or_equal", lambda *a, **kw: False)
+    _tu.is_flash_attn_greater_or_equal_2_10 = lambda: fn("2.10")
+
 from transformers import AutoModel, AutoProcessor, AutoTokenizer
 
 
@@ -29,9 +37,12 @@ MODEL_PATH = os.environ.get("LOCATE_MODEL_PATH",
                             "/home/aiunion/hf-models/LocateAnything-3B")
 HOST = os.environ.get("LOCATE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("LOCATE_PORT", "18794"))
-MAX_NEW_TOKENS = int(os.environ.get("LOCATE_MAX_NEW_TOKENS", "512"))
+MAX_NEW_TOKENS = int(os.environ.get("LOCATE_MAX_NEW_TOKENS", "192"))
+# Cap counts:LocateAnything 偶爾 over-generate(超出視野合理上限的 hallucination)。
+# Sweep cheap-gate 只需 boolean,cap 在常識上限避免雜訊污染 baseline 與 dashboard。
+COUNT_CAP = int(os.environ.get("LOCATE_COUNT_CAP", "30"))
 
-BOX_RE = re.compile(r"<box>\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*</box>")
+BOX_RE = re.compile(r"<box>(?:<\d+>\s*){4}</box>")
 
 
 def _log(msg):
@@ -39,14 +50,17 @@ def _log(msg):
 
 
 _log(f"Loading LocateAnything-3B from {MODEL_PATH}...")
+# Model config 預設 `_attn_implementation: magi`(MagiAttention),但 single-GPU
+# inference 用內建 SDPA 即可,且 MagiAttention 需 build-from-source。
 _tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
 _processor = AutoProcessor.from_pretrained(MODEL_PATH, trust_remote_code=True)
 _model = AutoModel.from_pretrained(
     MODEL_PATH,
     torch_dtype=torch.bfloat16,
     trust_remote_code=True,
+    attn_implementation="sdpa",
 ).to("cuda").eval()
-_log("LocateAnything-3B ready on cuda · bf16")
+_log("LocateAnything-3B ready on cuda · bf16 · SDPA attention")
 
 
 @torch.inference_mode()
@@ -80,7 +94,10 @@ def detect_one(image, category):
     text_out = response[0] if isinstance(response, tuple) else response
     if isinstance(text_out, (list, tuple)):
         text_out = text_out[0]
-    return len(BOX_RE.findall(str(text_out)))
+    raw = str(text_out)
+    n = min(len(BOX_RE.findall(raw)), COUNT_CAP)
+    _log(f"[{category!r}] n={n}")
+    return n
 
 
 class H(BaseHTTPRequestHandler):
