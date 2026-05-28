@@ -319,6 +319,20 @@ details.audit-more table{font-size:12.5px}
 .wd-ts{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);color:#edf0f2;
   font-size:10.5px;padding:2px 6px;border-radius:3px;font-family:ui-monospace,Consolas,monospace;
   backdrop-filter:blur(4px)}
+/* 主頁右側即時事件 panel(暗色) */
+.dev-list{display:flex;flex-direction:column;gap:6px;max-height:520px;overflow-y:auto}
+.dev{background:rgba(255,255,255,.03);border-left:3px solid #4b5563;border-radius:6px;
+  padding:9px 12px;font-size:12.5px;line-height:1.55}
+.dev.sev-critical{border-left-color:#f87171;background:rgba(248,113,113,.07)}
+.dev.sev-high{border-left-color:#fbbf24;background:rgba(251,191,36,.07)}
+.dev.sev-medium{border-left-color:#60a5fa;background:rgba(96,165,250,.06)}
+.dev-ts{color:#9aa3c7;font-size:10.5px;font-family:ui-monospace,Consolas,monospace;display:flex;
+  justify-content:space-between;align-items:center;margin-bottom:2px}
+.dev-name{color:#edf0f2;font-weight:600;margin:1px 0}
+.dev-sum{color:#c7cdf0;font-size:12px}
+.dev-empty{padding:32px 14px;text-align:center;color:#6b7280;font-size:12.5px}
+.dev a{color:#7fd6ff;text-decoration:none;font-size:11px}
+.dev a:hover{text-decoration:underline}
 /* 監控牆 /wall */
 body.wall-body{background:#f5f6f7;color:#1f2937}
 .wall-wrap{max-width:1760px;margin:0 auto;padding:18px 22px 28px}
@@ -826,6 +840,30 @@ def _render_wall_page(layout=16):
 </div></body></html>"""
 
 
+def _render_live_events(rows):
+    """主頁右側即時事件 panel(暗色 glass,取代 attack_scene)。
+    拉 audit ≥medium 最近 12 條,critical/high/medium 上色標出,含 trace_id 跳轉。"""
+    events = _wall_events(rows, limit=12)
+    if events:
+        items = []
+        for e in events:
+            trace = e.get("trace_id") or ""
+            link = (f"<a href='/trace?trace_id={urllib.parse.quote(trace)}'>查證據鏈 →</a>"
+                    if trace else "")
+            items.append(
+                f"<div class='dev sev-{e['severity']}'>"
+                f"<div class=dev-ts><span>{html.escape(e['ts'])} · ch{html.escape(str(e['channel']))} · "
+                f"{_sev_zh(e['severity'])}</span>{link}</div>"
+                f"<div class=dev-name>{html.escape(e['name'])}</div>"
+                f"<div class=dev-sum>{html.escape(e['summary'])}</div></div>")
+        body = f"<div class=dev-list>{''.join(items)}</div>"
+    else:
+        body = "<div class=dev-empty>尚無 ≥ 中嚴重度事件 · 巡檢中</div>"
+    return (f"<section class='panel glass'><h3>📡 即時事件 "
+            f"<span class=muted style='font-size:11px;font-weight:400'>"
+            f"嚴重度 ≥ 中 · 最近 12 條</span></h3>{body}</section>")
+
+
 def _render_thoughts():
     if not _thoughts:
         return ""
@@ -1201,6 +1239,7 @@ class H(BaseHTTPRequestHandler):
         sky_eye_grid = _render_sky_eye_grid(selected_channel, layout=layout)
         thoughts_panel = _render_thoughts()
         attack_scene = _render_attack_scene(rows)
+        live_events = _render_live_events(rows)
         status_html = (_health_dots(health)
                        + "<span class=muted>每 5s 更新 · 檢視時暫停</span>")
         dist = " ".join(
@@ -1243,7 +1282,7 @@ class H(BaseHTTPRequestHandler):
   <div class=sub>世界路口監控牆 / 異常演練 · GB10 · <a href='/wall' style='color:#7fd6ff'>全螢幕監控牆 →</a></div></div>
   <div class=status>{status_html}</div>
 </header>
-<main class=primary-grid>{sky_eye_grid}{attack_scene}</main>
+<main class=primary-grid>{sky_eye_grid}{live_events}</main>
 {command_center}
 {correlation_panel}
 {followups_panel}
@@ -1251,6 +1290,7 @@ class H(BaseHTTPRequestHandler):
 <div class=tiles>{tiles}</div>
 <section class='panel glass'><h3>級聯效率</h3>
 <div class=stats>{eff}</div></section>
+{attack_scene}
 {attack_matrix}
 {thoughts_panel}
 <section class='panel glass'><h3>決策稽核軌跡 <span class=muted style='font-size:11px;font-weight:400'>最新 {len(recent)} 列</span></h3>
